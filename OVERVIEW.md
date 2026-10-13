@@ -69,7 +69,7 @@ The non-GUI core (`dna`, `genbank`, `protein`, `enzyme`) looks closest to workin
 - Python 3 fixes: `None` comparisons in `mixed_base_codons.py`, bytes for the wx clipboard in `genbank.py`, removed `string.*` functions, tab/space mixes in three GUI files, a stray parenthesis in `src/other/seqfiles.py`.
 - Also fixed: a typo (`ncut52`) in `enzyme.py` that crashed for enzymes with two cuts.
 - The enzyme list (`resources/emboss_e.txt`) is located relative to the package, not the working directory.
-- Unit tests in `tests/` cover the core (117 tests including the GUI smoke tests), using the fixture `tests/data/test_plasmid.gb`. Run them with:
+- Unit tests in `tests/` cover the core (127 tests including the GUI smoke tests), using the fixture `tests/data/test_plasmid.gb`. Run them with:
 
 ```
 python -m unittest discover -s tests -t .
@@ -94,6 +94,8 @@ Start it from the repository root with `python -m src.gui.main`.
 - Menu handlers fixed after a first manual run: `wx.FD_FILE_MUST_EXIST`/`wx.FD_OVERWRITE_PROMPT`, File > New (it started another instance with a Linux-only command), file names with several dots, Enzymes > Digest, the Protein menu (3-value selection, output window, translate feature), the mixed base codon dialog (import, scrollbar call, window added to a sizer twice), and the plasmid label arrangement with no labels.
 - Opening a real-world file (NEB pUC19) exposed more problems, now fixed: the file dialog filter (`*` instead of `*.gb;*.gbk`), the parser rejecting an empty `VERSION` line, feature keys starting with `-` (`-35_signal`, `-10_signal`) being dropped, and feature colours looked up with `eval()` on the key, which crashes for keys that are not valid Python names. Colours now come from `config.feature_colour()`, which maps such keys (`-35_signal` to `a35_signal`, `5'UTR` to `a5UTR`) and falls back to grey. The open dialog now starts in the current working directory.
 - Flicker on every selection change: the drawing panels erased their background before each paint (6 erase events per update in the editor). They now use `wx.BG_STYLE_PAINT` with a no-op erase handler and `Refresh(False)`, since the buffer covers the whole panel.
+- Scroll bar for the sequence view: the editor was inside a scroll window with a sizer, which kept resizing the editor to the visible area, so there was never anything to scroll. The sizer is gone; the editor now wraps the text first (`layoutText`), then sets its own height and the scroll window's virtual size to fit all lines, and the scroll window shows a vertical scroll bar. Room for the bar is always reserved (its appearance changes the client size without a resize event), the editor follows the size of the scroll window, and mouse wheel events are forwarded to the scroll window.
+- Keyboard input in the editor: `GetUniChar()` no longer exists, `GetUnicodeKey()` is used (with the key code for non-character keys such as the arrows). Typing bases, arrow keys, backspace and delete, and mouse clicking, dragging and hit testing are covered by smoke tests with synthetic events.
 - Known cosmetic issue: on the plasmid map, long labels are cut off at the edge of the panel.
 - `tests/test_gui_smoke.py` also fires every menu item with a file loaded and a selection made (dialogs are cancelled) and fails on any exception.
 - **Not yet verified by hand:** clicking, dragging a selection, typing, and what the dialogs do when confirmed (open/save, feature edit, enzyme selection and digestion). The menu test only starts the handlers.
@@ -114,5 +116,6 @@ Start it from the repository root with `python -m src.gui.main`.
 5. **Remove the app-wide mutable state** stored on the `genbank` module (`genbank.gb`, `dna_selection`, `feature_selection`, `cursor_position`, `search_hits`). It is initialized in `main.py` and makes the GUI hard to test.
 6. **Extend the GUI tests**: smoke tests exist for the editor, plasmid view, feature list and main window. Missing: the other dialogs and panels, and simulated mouse and keyboard input.
 7. **Packaging and docs:** fix `setup.py` (missing `HISTORY.md`, wrong entry point), add a requirements file, and update the README (it still describes Python 2.7 and `python main.py`).
-8. **Clean up** `src/other/` (unused, partly broken legacy code), the leftover debug `print` calls (for example in `peptide_localizer.py` and `Undo`), and the `/home/martin/...` default path in `src/defaults/settings`.
-9. Longer term: the unimplemented features from the README (ab1 trace analysis, codon optimization, NCBI fetch, primer design, PCR simulation, alignment).
+8. **Large sequences in the editor.** The editor keeps one bitmap as tall as the whole sequence (about 95 pixels per line), so memory use and bitmap size limits will be a problem for sequences of tens or hundreds of kilobases. Draw only the visible part instead. The cursor also does not scroll into view yet when it moves with the keyboard.
+9. **Clean up** `src/other/` (unused, partly broken legacy code), the leftover debug `print` calls (for example in `peptide_localizer.py` and `Undo`), and the `/home/martin/...` default path in `src/defaults/settings`.
+10. Longer term: the unimplemented features from the README (ab1 trace analysis, codon optimization, NCBI fetch, primer design, PCR simulation, alignment).

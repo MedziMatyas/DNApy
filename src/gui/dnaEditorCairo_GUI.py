@@ -133,6 +133,11 @@ class TextEdit(DNApyBaseDrawingClass):
 		self.Bind(wx.EVT_LEFT_UP, self.OnLeftUp)
 		self.Bind(wx.EVT_MOTION, self.OnMotion) # drag and drop, selection etc.
 		self.Bind(wx.EVT_KEY_DOWN, self.OnKeyPress) #This is important for controlling the input into the editor
+
+		# The editor is as wide as its scroll window and as high as the whole sequence, so it has to follow
+		# the size of the scroll window (which changes with the window and when the scroll bar appears)
+		self.parent.Bind(wx.EVT_SIZE, self.OnParentSize)
+		self.Bind(wx.EVT_MOUSEWHEEL, self.OnMouseWheel) # the editor covers the whole scroll window
 		
 
 ####### Modify methods from base calss to fit current needs #########
@@ -143,6 +148,14 @@ class TextEdit(DNApyBaseDrawingClass):
 		'''
 		MSG_CHANGE_TEXT = "change.text"
 		pub.sendMessage(MSG_CHANGE_TEXT, text="DNA view says update!")
+
+	def OnMouseWheel(self, event):
+		'''Mouse events are not passed on to the parent, so the wheel is handed to the scroll window explicitly.'''
+		self.parent.GetEventHandler().ProcessEvent(event)
+
+	def OnParentSize(self, event):
+		event.Skip()
+		self.update_ownUI()
 
 	def update_ownUI(self):
 		"""
@@ -176,12 +189,26 @@ class TextEdit(DNApyBaseDrawingClass):
 		# The Buffer init is done here, to make sure the buffer is always
 		# the same size as the Window
 		wC, hC = self.parent.GetClientSize()
+		if not self.parent.HasScrollbar(wx.VERTICAL):
+			# always leave room for the scroll bar. Its appearance changes the client size without a resize event,
+			# so using the full width would make the editor too wide as soon as the scroll bar shows up.
+			wC = wC - wx.SystemSettings.GetMetric(wx.SYS_VSCROLL_X)
 
-		wP, hP = self.parent.GetSize()
+		# reload dna
+		self.dna = genbank.gb.GetDNA()
+		if self.dna != None:
+			self.cdna 	= dna.C(self.dna)
+		else:
+			self.dna 	= ''	# no dna, if there is nothing
+			self.cdna 	= ''	# empty cdna
+
+		# wrap the text and find out how high the editor has to be to show all of it
+		self.layoutText(max(wC, 1))
+
 		# only resize if something changed, otherwise the resize events keep triggering each other
 		if self.GetSize() != wx.Size(wC, self.minHeight):
 			self.SetSize(wx.Size(wC, self.minHeight))
-		virtualWidth = max(wC-30, 1) # leave room for the scrollbar, a negative size is not valid
+		virtualWidth = max(wC, 1) # a negative size is not valid
 		if self.parent.GetVirtualSize() != wx.Size(virtualWidth, self.minHeight):
 			self.parent.SetVirtualSize(wx.Size(virtualWidth, self.minHeight))
 		
@@ -205,14 +232,6 @@ class TextEdit(DNApyBaseDrawingClass):
 		self.ctx.set_source_rgb(1, 1, 1)
 		self.ctx.paint() # white background
 		self.ctx.set_antialias(cairo.ANTIALIAS_SUBPIXEL)
-		
-		# reload dna
-		self.dna = genbank.gb.GetDNA()
-		if self.dna != None:
-			self.cdna 	= dna.C(self.dna)
-		else:
-			self.dna 	= ''	# no dna, if there is nothing
-			self.cdna 	= ''	# empty cdna
 			
 		# render the text
 		self.displayText()
@@ -247,26 +266,8 @@ class TextEdit(DNApyBaseDrawingClass):
 			here the text gets positioned and all its color.
 			Also the selection highlight is done here'''
 		
-		# get window size to wrap text
-		width, height 	= self.parent.GetVirtualSize()
-		if width > 30:
-			w = width - self.dX
-		else:
-			w = width
-		# save with for other functions
-		self.w = w
-
-		# set the font and measure it
-		fontpx 			= self.fontsize * 96 / 72.0 # the font size is in points, cairo wants pixels
-		select_monospace_font(self.ctx, fontpx)
-		ascent, descent, textHeight, xmax, ymax = self.ctx.font_extents()
-		charWidth 		= self.ctx.text_extents('M')[4] + self.letterSpacing
-
-		# wrap the text. The sense layout is also used to find the positions of characters later on
-		self.senseLayout 	= MonoLayout(len(self.dna), charWidth, textHeight, self.textSpacing, w)
-		self.lineLength 	= self.senseLayout.line_length
-		self.lineHeight 	= self.senseLayout.line_height
-		self.ascent 		= ascent
+		# the layout was made before drawing started (see layoutText), here only the font has to be set
+		select_monospace_font(self.ctx, self.fontpx)
 
 		# get selection, if any
 		start, end, zero = self.get_selection()
@@ -288,10 +289,34 @@ class TextEdit(DNApyBaseDrawingClass):
 		self.drawStrand(self.dna, self.sY, highlight)
 		self.drawStrand(self.cdna, self.sY + self.fontsize + self.lineGap, highlight)
 
-		# update the height of the context, based on the inserted dna
-		self.minHeight = int(math.ceil(self.senseLayout.pixel_size[1] + 2*self.sY))
-
 		return None
+
+	def layoutText(self, width):
+		'''Wrap the dna into lines that fit in `width` pixels. This sets the layout that all drawing and mouse
+		handling uses and the height the editor needs to show all lines (minHeight).
+		It is done before drawing, since the size of the drawing depends on it.'''
+		if width > 30:
+			w = width - self.dX
+		else:
+			w = width
+		# save with for other functions
+		self.w = w
+
+		# measure the font on a scratch surface
+		scratch 		= cairo.Context(cairo.ImageSurface(cairo.FORMAT_ARGB32, 1, 1))
+		self.fontpx 	= self.fontsize * 96 / 72.0 # the font size is in points, cairo wants pixels
+		select_monospace_font(scratch, self.fontpx)
+		ascent, descent, textHeight, xmax, ymax = scratch.font_extents()
+		charWidth 		= scratch.text_extents('M')[4] + self.letterSpacing
+
+		# the sense layout is also used to find the positions of characters later on
+		self.senseLayout 	= MonoLayout(len(self.dna), charWidth, textHeight, self.textSpacing, w)
+		self.lineLength 	= self.senseLayout.line_length
+		self.lineHeight 	= self.senseLayout.line_height
+		self.ascent 		= ascent
+
+		# the height needed for all lines, with space for the features above and below
+		self.minHeight = int(math.ceil(self.senseLayout.pixel_size[1] + 2*self.sY))
 
 
 	def drawStrand(self, text, top, highlight):
@@ -964,7 +989,9 @@ class TextEdit(DNApyBaseDrawingClass):
 		
 	def OnKeyPress(self, evt):
 		
-		key = evt.GetUniChar()
+		key = evt.GetUnicodeKey()
+		if key == wx.WXK_NONE: # not a character, such as an arrow key
+			key = evt.GetKeyCode()
 
 		index = self.PositionPointer
 		

@@ -424,7 +424,9 @@ class TextEdit(DNApyBaseClass):
 
 
 	def OnKeyPress(self, evt):
-		key = evt.GetUniChar()
+		key = evt.GetUnicodeKey()
+		if key == wx.WXK_NONE: # not a character, such as an arrow key
+			key = evt.GetKeyCode()
 
 		shift = evt.ShiftDown() # is shift down?
 

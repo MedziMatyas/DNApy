@@ -61,6 +61,7 @@ class TestDnaEditor(GuiTestCase):
         from src.gui import dnaEditorCairo_GUI
         wx = wxapp.wx
         scroll = wx.ScrolledWindow(self.frame, wx.ID_ANY)
+        scroll.SetScrollRate(1, 15)  # as in the main window, which makes the window scrollable
         editor = dnaEditorCairo_GUI.TextEdit(scroll, id=wx.ID_ANY)
         self.frame.Show()
         editor.update_ownUI()
@@ -75,6 +76,125 @@ class TestDnaEditor(GuiTestCase):
         editor = self.make_editor()
         self.assertEqual(editor.senseLayout.length, 95)
         self.assertEqual(editor.cdna, dna.C(genbank.gb.GetDNA()))
+
+    def press(self, editor, code, shift=False):
+        """Send a key press to the editor. Printable keys have a unicode key, special keys (arrows) do not."""
+        wx = wxapp.wx
+        event = wx.KeyEvent(wx.wxEVT_KEY_DOWN)
+        event.SetKeyCode(code)
+        event.SetUnicodeKey(code if 32 <= code < 127 else 0)
+        event.SetShiftDown(shift)
+        editor.OnKeyPress(event)
+
+    def test_typing_inserts_bases(self):
+        editor = self.make_editor()
+        self.press(editor, ord('G'))  # no shift: lower case
+        self.assertEqual(genbank.gb.GetDNA()[:6], 'gatggc')
+        self.press(editor, ord('T'), shift=True)  # shift: upper case
+        self.assertEqual(genbank.gb.GetDNA()[:6], 'gTatgg')
+        self.assertEqual(len(genbank.gb.GetDNA()), 97)
+        self.assertEqual(editor.PositionPointer, 3)
+
+    def test_other_letters_are_ignored(self):
+        editor = self.make_editor()
+        self.press(editor, ord('X'))
+        self.assertEqual(len(genbank.gb.GetDNA()), 95)
+
+    def test_arrow_keys_move_the_cursor(self):
+        wx = wxapp.wx
+        editor = self.make_editor()
+        self.press(editor, wx.WXK_RIGHT)
+        self.press(editor, wx.WXK_RIGHT)
+        self.assertEqual(editor.PositionPointer, 3)
+        self.press(editor, wx.WXK_LEFT)
+        self.assertEqual(editor.PositionPointer, 2)
+
+    def test_backspace_and_delete(self):
+        wx = wxapp.wx
+        editor = self.make_editor()
+        self.press(editor, wx.WXK_RIGHT)
+        self.press(editor, wx.WXK_RIGHT)  # cursor is now in front of the third base
+        self.press(editor, wx.WXK_BACK)  # removes the base in front of the cursor
+        self.assertEqual(genbank.gb.GetDNA()[:5], 'aggct')
+        self.press(editor, wx.WXK_DELETE)  # removes the base after the cursor
+        self.assertEqual(len(genbank.gb.GetDNA()), 93)
+
+    def mouse_at(self, editor, x, y):
+        """Make the editor see the mouse at (x, y) in its own coordinates."""
+        from unittest import mock
+        wx = wxapp.wx
+        patcher = mock.patch.object(wx, 'GetMousePosition', lambda: editor.ClientToScreen(wx.Point(int(x), int(y))))
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def centre_of(self, editor, index):
+        x, y, w, h = editor.senseLayout.index_to_pos(index)
+        return editor.dX + x + w / 2, editor.sY + y + h / 2
+
+    def mouse_event(self, editor, kind):
+        event = wxapp.wx.MouseEvent(kind)
+        event.SetEventObject(editor)
+        return event
+
+    def test_click_places_the_cursor(self):
+        wx = wxapp.wx
+        editor = self.make_editor()
+        self.mouse_at(editor, *self.centre_of(editor, 10))
+        editor.OnLeftDown(self.mouse_event(editor, wx.wxEVT_LEFT_DOWN))
+        self.assertEqual(editor.PositionPointer, 11)  # positions are 1-based
+
+    def test_dragging_selects(self):
+        wx = wxapp.wx
+        editor = self.make_editor()
+        self.mouse_at(editor, *self.centre_of(editor, 10))
+        editor.OnLeftDown(self.mouse_event(editor, wx.wxEVT_LEFT_DOWN))
+        self.mouse_at(editor, *self.centre_of(editor, 25))
+        motion = self.mouse_event(editor, wx.wxEVT_MOTION)
+        motion.SetLeftDown(True)
+        editor.OnMotion(motion)
+        self.assertEqual(genbank.dna_selection, (11, 26, -1))
+
+    def test_hit_test_finds_the_feature_under_the_mouse(self):
+        editor = self.make_editor()
+        self.mouse_at(editor, 100, editor.sY - 9)  # the bar of the first feature is drawn just above the text
+        self.assertEqual(editor.HitTest(), 'test_cds0')
+        self.mouse_at(editor, 100, editor.sY + 60)  # nothing here
+        self.assertIsNone(editor.HitTest())
+
+    def test_long_sequence_can_be_scrolled(self):
+        genbank.gb.gbfile['dna'] = 'acgt' * 750  # 3000 bp, many more lines than fit in the window
+        editor = self.make_editor()
+        scroll = editor.parent
+        for _ in range(5):
+            wxapp.wx.Yield()
+        self.assertTrue(scroll.HasScrollbar(wxapp.wx.VERTICAL))
+        # the editor is as high as all of its lines, not only as high as the visible part
+        self.assertEqual(editor.GetSize()[1], editor.minHeight)
+        self.assertGreater(editor.minHeight, scroll.GetClientSize()[1] * 3)
+        # the scroll bar must not make the editor wider than the visible area
+        self.assertLessEqual(editor.GetSize()[0], scroll.GetClientSize()[0])
+
+    def test_mouse_wheel_scrolls(self):
+        wx = wxapp.wx
+        genbank.gb.gbfile['dna'] = 'acgt' * 750
+        editor = self.make_editor()
+        scroll = editor.parent
+        for _ in range(5):
+            wx.Yield()
+        self.assertEqual(scroll.GetViewStart()[1], 0)
+        event = wx.MouseEvent(wx.wxEVT_MOUSEWHEEL)
+        event.SetEventObject(editor)
+        event.SetWheelRotation(-120)  # one notch down
+        event.SetWheelDelta(120)
+        event.SetLinesPerAction(3)
+        editor.GetEventHandler().ProcessEvent(event)
+        self.assertGreater(scroll.GetViewStart()[1], 0)
+
+    def test_short_sequence_needs_no_scroll_bar(self):
+        editor = self.make_editor()
+        for _ in range(5):
+            wxapp.wx.Yield()
+        self.assertFalse(editor.parent.HasScrollbar(wxapp.wx.VERTICAL))
 
     def test_selection_is_drawn(self):
         editor = self.make_editor()

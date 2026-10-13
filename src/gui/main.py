@@ -96,9 +96,9 @@ class DNAedit(DNApyBaseClass):
 		self.scroll.SetScrollbars(0,10, 1, 10)
 		self.scroll.SetScrollRate( 1, 15 )      # Pixels per scroll increment
 
-		scrollSizer = wx.BoxSizer()
-		scrollSizer.Add(self.dnaview,wx.ID_ANY, wx.EXPAND|wx.ALL, 0)
-		self.scroll.SetSizer(scrollSizer)
+		# No sizer here: the editor sets its own size and the virtual size of this window to the height of the
+		# whole sequence, and this window shows a scroll bar when that is more than fits. A sizer would resize
+		# the editor to the visible area again.
 
 		self.parent = parent
 		self.plasmidview = plasmid_GUI.PlasmidView2(splitter0, -1)
