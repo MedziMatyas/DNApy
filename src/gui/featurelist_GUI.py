@@ -37,9 +37,9 @@
 import ast
 from wx.lib.agw import ultimatelistctrl as ULC
 import wx
-from wx.lib.pubsub import setupkwargs #this line not required in wxPython2.9.
  	                                  #See documentation for more detail
-from wx.lib.pubsub import pub
+from .compat import pub
+from . import config
 
 import sys, os
 import string
@@ -47,17 +47,12 @@ import string
 
 import copy
 
-import colcol
-import genbank
-from base_class import DNApyBaseClass
-import featureedit_GUI
+from ..other import colcol
+from .. import genbank
+from .base_class import DNApyBaseClass
+from . import featureedit_GUI
 
-files={}   #list with all configuration files
-files['default_dir'] = os.path.abspath(os.path.dirname(sys.argv[0]))+"/"
-files['default_dir']=string.replace(files['default_dir'], "\\", "/")
-files['default_dir']=string.replace(files['default_dir'], "library.zip", "")
-settings=files['default_dir']+"settings"   ##path to the file of the global settings
-exec(compile(open(settings).read(), settings, 'exec')) #gets all the pre-assigned settings
+config.load_defaults(globals())
 
 
 
@@ -112,17 +107,17 @@ class FeatureList(DNApyBaseClass):
 
 		#arrange buttons vertically		
 		sizer = wx.BoxSizer(wx.VERTICAL)
-		sizer.Add(item=newfeature)
-		sizer.Add(item=deletefeature)
-		sizer.Add(item=edit)
-		sizer.Add(item=moveup)
-		sizer.Add(item=movedown)
+		sizer.Add(newfeature)
+		sizer.Add(deletefeature)
+		sizer.Add(edit)
+		sizer.Add(moveup)
+		sizer.Add(movedown)
 
 
 		#add feature list and buttons horisontally	
 		sizer2 = wx.BoxSizer(wx.HORIZONTAL)
-		sizer2.Add(item=sizer, proportion=0, flag=wx.EXPAND)
-		sizer2.Add(item=self.feature_list, proportion=3, flag=wx.EXPAND)
+		sizer2.Add(sizer, proportion=0, flag=wx.EXPAND)
+		sizer2.Add(self.feature_list, proportion=3, flag=wx.EXPAND)
 
 		self.SetSizer(sizer2)
 
@@ -339,12 +334,7 @@ class MyApp(wx.App):
 
 if __name__ == '__main__': #if script is run by itself and not loaded	
 
-	files={}   #list with all configuration files
-	files['default_dir'] = os.path.abspath(os.path.dirname(sys.argv[0]))+"/"
-	files['default_dir']=string.replace(files['default_dir'], "\\", "/")
-	files['default_dir']=string.replace(files['default_dir'], "library.zip", "")
-	settings=files['default_dir']+"settings"   ##path to the file of the global settings
-	exec(compile(open(settings).read(), settings, 'exec')) #gets all the pre-assigned settings
+	config.load_defaults(globals())
 
 	genbank.dna_selection = (1, -1)	 #variable for storing current DNA selection
 	genbank.feature_selection = False #variable for storing current feature selection

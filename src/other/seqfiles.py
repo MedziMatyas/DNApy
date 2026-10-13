@@ -254,7 +254,7 @@ class SeqObj(Object):
 			#add an assert that there are only dna bases here
 			f.close()
 			
-		elif self.input_type in ['AB1', 'ABI']):
+		elif self.input_type in ['AB1', 'ABI']:
 			ab1 = ABIreader.Trace(filepath, trimming=False) #optionally ', trimming=True'
 			self.SetDNA(ab1.seq)
 			self.SetQualVal(ab1.qual_val)

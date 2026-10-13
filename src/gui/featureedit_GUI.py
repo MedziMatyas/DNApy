@@ -36,10 +36,11 @@
 
 import ast
 import wx
+from . import config
 from wx.lib.agw import ultimatelistctrl as ULC
 #from wx.lib.pubsub import pub
 
-import genbank
+from .. import genbank
 
 
 import sys, os
@@ -49,15 +50,10 @@ import copy
 
 #for asserts and tests
 import types
-from base_class import DNApyBaseClass
+from .base_class import DNApyBaseClass
 
 
-files={}   #list with all configuration files
-files['default_dir'] = os.path.abspath(os.path.dirname(sys.argv[0]))+"/"
-files['default_dir']=string.replace(files['default_dir'], "\\", "/")
-files['default_dir']=string.replace(files['default_dir'], "library.zip", "")
-settings=files['default_dir']+"settings"   ##path to the file of the global settings
-exec(compile(open(settings).read(), settings, 'exec')) #gets all the pre-assigned settings
+config.load_defaults(globals())
 
 
 
@@ -118,16 +114,16 @@ class QualifierEdit(wx.Dialog):
 
 		#sizers
 		buttonsizer = wx.BoxSizer(wx.HORIZONTAL)
-		buttonsizer.Add(item=self.button_ok)
-		buttonsizer.Add(item=self.button_cancel)
+		buttonsizer.Add(self.button_ok)
+		buttonsizer.Add(self.button_cancel)
 
 		globsizer = wx.BoxSizer(wx.VERTICAL)
-		globsizer.Add(item=self.qualifier_header, flag=wx.LEFT, border=10)
-		globsizer.Add(item=self.qualifier_combobox, flag=wx.LEFT, border=10)
-		globsizer.Add(item=self.spacer1, flag=wx.LEFT, border=10)
-		globsizer.Add(item=self.tag_header, flag=wx.LEFT, border=10)
-		globsizer.Add(item=self.tag_field, flag=wx.LEFT, border=10)
-		globsizer.Add(item=buttonsizer, flag=wx.LEFT, border=10)
+		globsizer.Add(self.qualifier_header, flag=wx.LEFT, border=10)
+		globsizer.Add(self.qualifier_combobox, flag=wx.LEFT, border=10)
+		globsizer.Add(self.spacer1, flag=wx.LEFT, border=10)
+		globsizer.Add(self.tag_header, flag=wx.LEFT, border=10)
+		globsizer.Add(self.tag_field, flag=wx.LEFT, border=10)
+		globsizer.Add(buttonsizer, flag=wx.LEFT, border=10)
 
 		self.SetSizer(globsizer)
 		self.Center()
@@ -205,28 +201,28 @@ class FeatureEdit(DNApyBaseClass):
 
 		#sizers
 		label_sizer = wx.BoxSizer(wx.HORIZONTAL)
-		label_sizer.Add(item=featuretext, flag=wx.ALL, border=5)
-		label_sizer.Add(item=self.featuretext, flag=wx.LEFT, border=80-featuretext.GetSize()[0])
+		label_sizer.Add(featuretext, flag=wx.ALL, border=5)
+		label_sizer.Add(self.featuretext, flag=wx.LEFT, border=80-featuretext.GetSize()[0])
 
 		type_sizer = wx.BoxSizer(wx.HORIZONTAL)
-		type_sizer.Add(item=typetext, flag=wx.ALL, border=5)
-		type_sizer.Add(item=self.type_combobox, flag=wx.LEFT, border=80-typetext.GetSize()[0])
+		type_sizer.Add(typetext, flag=wx.ALL, border=5)
+		type_sizer.Add(self.type_combobox, flag=wx.LEFT, border=80-typetext.GetSize()[0])
 
 		location_sizer = wx.BoxSizer(wx.HORIZONTAL)		
-		location_sizer.Add(item=locationtext, flag=wx.ALL, border=5)
-		location_sizer.Add(item=self.location, flag=wx.LEFT, border=80-locationtext.GetSize()[0])
+		location_sizer.Add(locationtext, flag=wx.ALL, border=5)
+		location_sizer.Add(self.location, flag=wx.LEFT, border=80-locationtext.GetSize()[0])
 
 		complement_sizer = wx.BoxSizer(wx.VERTICAL)
-		complement_sizer.Add(item=self.complementbox)
-		complement_sizer.Add(item=self.joinbox)
-		complement_sizer.Add(item=self.orderbox)
+		complement_sizer.Add(self.complementbox)
+		complement_sizer.Add(self.joinbox)
+		complement_sizer.Add(self.orderbox)
 
 		main_sizer = wx.BoxSizer(wx.VERTICAL)
-		main_sizer.Add(item=label_sizer)
-		main_sizer.Add(item=type_sizer)
-		main_sizer.Add(item=location_sizer)
-		main_sizer.Add(item=(0,40))
-		main_sizer.Add(item=complement_sizer)
+		main_sizer.Add(label_sizer)
+		main_sizer.Add(type_sizer)
+		main_sizer.Add(location_sizer)
+		main_sizer.Add((0,40))
+		main_sizer.Add(complement_sizer)
 		self.feature_dlg.SetSizer(main_sizer)
 
 		##
@@ -265,20 +261,20 @@ class FeatureEdit(DNApyBaseClass):
 
 		#sizers
 		sizer = wx.BoxSizer(wx.VERTICAL)
-		sizer.Add(item=addqual)
-		sizer.Add(item=deletequal)
-		sizer.Add(item=qualup)
-		sizer.Add(item=qualdown)
-		sizer.Add(item=qualedit)
+		sizer.Add(addqual)
+		sizer.Add(deletequal)
+		sizer.Add(qualup)
+		sizer.Add(qualdown)
+		sizer.Add(qualedit)
 		
 		sizer2 = wx.BoxSizer(wx.HORIZONTAL)
-		sizer2.Add(item=self.qualifier_list, proportion=3, flag=wx.EXPAND)
-		sizer2.Add(item=sizer, proportion=0, flag=wx.EXPAND)
+		sizer2.Add(self.qualifier_list, proportion=3, flag=wx.EXPAND)
+		sizer2.Add(sizer, proportion=0, flag=wx.EXPAND)
 
 		main_sizer = wx.BoxSizer(wx.HORIZONTAL)
-		main_sizer.Add(item=self.feature_dlg, proportion=-1, flag=wx.EXPAND)
+		main_sizer.Add(self.feature_dlg, proportion=-1, flag=wx.EXPAND)
 
-		main_sizer.Add(item=sizer2, proportion=-1, flag=wx.EXPAND)
+		main_sizer.Add(sizer2, proportion=-1, flag=wx.EXPAND)
 		self.SetSizer(main_sizer)
 		self.Centre()
 
@@ -552,8 +548,8 @@ class FeatureEditDialog(wx.Dialog):
 		
 		#organize feature edit panel and button panel
 		sizer = wx.BoxSizer(wx.VERTICAL)
-		sizer.Add(item=self.feature_edit, proportion=-1, flag=wx.EXPAND)
-		sizer.Add(item=self.NewFeatureButtonPanel, proportion=0)
+		sizer.Add(self.feature_edit, proportion=-1, flag=wx.EXPAND)
+		sizer.Add(self.NewFeatureButtonPanel, proportion=0)
 		self.SetSizer(sizer)		
 
 #		wx.EVT_CLOSE(self, self.OnCancel) #when window is closed on x, cancel
@@ -589,12 +585,7 @@ class MyApp(wx.App):
 
 if __name__ == '__main__': #if script is run by itself and not loaded	
 
-	files={}   #list with all configuration files
-	files['default_dir'] = os.path.abspath(os.path.dirname(sys.argv[0]))+"/"
-	files['default_dir']=string.replace(files['default_dir'], "\\", "/")
-	files['default_dir']=string.replace(files['default_dir'], "library.zip", "")
-	settings=files['default_dir']+"settings"   ##path to the file of the global settings
-	exec(compile(open(settings).read(), settings, 'exec')) #gets all the pre-assigned settings
+	config.load_defaults(globals())
 
 	genbank.dna_selection = (0, 0)	 #variable for storing current DNA selection
 	genbank.feature_selection = False #variable for storing current feature selection

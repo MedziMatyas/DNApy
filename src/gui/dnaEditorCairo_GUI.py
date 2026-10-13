@@ -30,9 +30,9 @@
 #
 
 
-from wx.lib.pubsub import setupkwargs #this line not required in wxPython2.9.
  	                                  #See documentation for more detail
-from wx.lib.pubsub import pub
+from .compat import pub
+from . import config
 
 from copy import deepcopy
 import string
@@ -41,18 +41,18 @@ from os import access,listdir
 import sys, os
 import string
 
-import genbank
+from .. import genbank
 import wx.stc
 
-import pyperclip
+from .. import pyperclip
 import copy
 
-import output
-import dna
-from base_class import DNApyBaseClass
-from base_class import DNApyBaseDrawingClass
+from . import output
+from .. import dna
+from .base_class import DNApyBaseClass
+from .base_class import DNApyBaseDrawingClass
 
-import featureedit_GUI
+from . import featureedit_GUI
 
 # drawing
 import cairo
@@ -62,18 +62,13 @@ import pangocairo # for glyphs and text
 import math
 
 # for color function
-import colcol
+from ..other import colcol
 
 # for hashing the enzymes to detect change in enzymes
 import hashlib
 
 
-files	=	{}   #list with all configuration files
-files['default_dir'] 	= os.path.abspath(os.path.dirname(sys.argv[0]))+"/"
-files['default_dir']	= string.replace(files['default_dir'], "\\", "/")
-files['default_dir']	= string.replace(files['default_dir'], "library.zip", "")
-settings=files['default_dir']+"settings"   ##path to the file of the global settings
-exec(compile(open(settings).read(), settings, 'exec')) #gets all the pre-assigned settings
+config.load_defaults(globals())
 
 
 ########### class for text ######################
@@ -173,10 +168,10 @@ class TextEdit(DNApyBaseDrawingClass):
 		# current drawing in it, so it can be used to save the image to
 		# a file, or whatever.
 #		if wC != 0 and hC !=0:
-#			self._Buffer = wx.EmptyBitmap(wC, self.minHeight)
+#			self._Buffer = wx.Bitmap(wC, self.minHeight)
 
 #		else:
-#			self._Buffer = wx.EmptyBitmap(wP, hP)
+#			self._Buffer = wx.Bitmap(wP, hP)
 				
 		##########################
 

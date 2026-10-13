@@ -282,7 +282,7 @@ class AmbigousCodon:
 				offtarget = sorted(self.extra_list_elements(AA_list, ResultingAA))
 				
 				#if there are fewer off-target amino acids with the new codon, keep it
-				if len(offtarget) < best_score or best_score == None:
+				if best_score is None or len(offtarget) < best_score:
 					best_score = len(offtarget)
 					good_triplets = []
 					good_triplets.append(triplet)
@@ -298,7 +298,7 @@ class AmbigousCodon:
 			Realcodons = dna.combine([dna.UnAmb(triplet[0]), dna.UnAmb(triplet[1]), dna.UnAmb(triplet[2])]) #condense the different codons for position 1, 2, and 3 to a list of triplets
 		
 			#save the stats in case there are fewer codons
-			if len(Realcodons) < best_score or best_score == None:
+			if best_score is None or len(Realcodons) < best_score:
 				#Check which AA these codons code for
 				ResultingAA = [dna.Translate(codon, table=self.getTable()) for codon in Realcodons]
 

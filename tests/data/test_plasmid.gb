@@ -1,0 +1,18 @@
+LOCUS       TestPlasmid 95 bp    DNA     circular SYN 01-JAN-2015
+DEFINITION  Small synthetic plasmid used for the DNApy unit tests.
+ACCESSION   .
+VERSION     .
+KEYWORDS    .
+SOURCE      synthetic construct
+  ORGANISM  synthetic construct
+            other sequences; artificial sequences.
+FEATURES             Location/Qualifiers
+     CDS             1..33
+                     /label="test_cds"
+                     /translation="MASKGSEFGT"
+     promoter        complement(40..55)
+                     /label="test_promoter"
+ORIGIN
+        1 atggctagca aaggatccga attcggtacc taagcgcgca tatgcgcgca tatgcgcgct
+       61 tttaaaattt tccccgggga aaattttccc cgggg
+//

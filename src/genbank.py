@@ -41,12 +41,18 @@
 
 from . import dna
 import copy
-import pyperclip
+try:
+	import pyperclip
+except ImportError:
+	from .external import pyperclip
 from . import oligo_localizer
 from . import peptide_localizer
 import re
 import sys
-import wx	# for richCopy
+try:
+	import wx	# for richCopy (optional, only needed for the GUI clipboard)
+except ImportError:
+	wx = None
 import json	# for richCopy
 
 from . import enzyme
@@ -969,7 +975,7 @@ class gbobject(object):
 		
 
 		dnapy              = wx.CustomDataObject("application/DNApy")
-		dnapy.SetData(JSONdnapyClipboard)
+		dnapy.SetData(JSONdnapyClipboard.encode('utf-8')) #wx wants bytes
 		
 		self.richClipboard.Add(text, True)	# add clear dna text as preffered object
 		self.richClipboard.Add(dnapy)		# add rich dna info as json
@@ -1007,12 +1013,12 @@ class gbobject(object):
 			if containsDNApy:
 				pasteRich = True
 				# get the json object
-				pasteDNA  = json.loads(self.dnaClipboard.GetData())
+				pasteDNA  = json.loads(bytes(self.dnaClipboard.GetData()).decode('utf-8'))
 				
 			elif containsText:
 				pasteRich = False
 				# paste the pure text
-				paste     = self.textClipboard.GetDataHere()
+				paste     = self.textClipboard.GetText()
 			else:
 				# else there is nothing to paste
 				pasteRich = False

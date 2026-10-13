@@ -29,7 +29,7 @@
 #Get source code at: https://github.com/mengqvist/DNApy
 #
 
-import fasta
+from .resources import fasta
 import string
 import random
 from . import protein # for conversion from dna to amino acid name

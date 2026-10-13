@@ -54,7 +54,7 @@ def re_const(peptide):
             re_out.append('[%sQEX]' % char)
         elif char == 'X':
             re_out.append('[ACGILMPSTVFNRYDEKQWBZX]')
-    re_out=string.join(re_out,'')
+    re_out=''.join(re_out)
     re_out="(?=(%s))" % re_out
     re_out_comp=re.compile(re_out,re.IGNORECASE)
     return re_out_comp

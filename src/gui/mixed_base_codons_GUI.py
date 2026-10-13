@@ -31,8 +31,8 @@
 
 import wx
 import wx.stc
-import mixed_base_codons as mbc
-import dna
+from .. import mixed_base_codons as mbc
+from .. import dna
 
 
 #TODO 

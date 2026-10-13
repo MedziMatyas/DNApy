@@ -38,38 +38,31 @@ import wx
 
 import cairo
 from wx.lib.wxcairo import ContextFromDC
-import pango # for text
-import pangocairo # for glyphs and text
 
-from wx.lib.pubsub import setupkwargs 		#this line not required in wxPython2.9.
  	                                  	#See documentation for more detail
-from wx.lib.pubsub import pub
+from .compat import pub
+from . import config
 
 
 
-import genbank
+from .. import genbank
 import copy
 import math
 import random # testweise
 
 import os, sys
 import string
-from base_class import DNApyBaseDrawingClass
-from base_class import DNApyBaseClass
-import featureedit_GUI
+from .base_class import DNApyBaseDrawingClass
+from .base_class import DNApyBaseClass
+from . import featureedit_GUI
 
-import colcol
+from ..other import colcol
 
 import hashlib
 
-import options					# new option file to make options easy to change in one file (or settings.txt)
+from . import options
 
-files					={}   #list with all configuration files
-files['default_dir'] 	= os.path.abspath(os.path.dirname(sys.argv[0]))+"/"
-files['default_dir']	= string.replace(files['default_dir'], "\\", "/")
-files['default_dir']	= string.replace(files['default_dir'], "library.zip", "")
-settings				= files['default_dir'] + "settings"   ##path to the file of the global settings
-exec(compile(open(settings).read(), settings, 'exec')) #gets all the pre-assigned settings
+config.load_defaults(globals())
 
 
 
@@ -1447,12 +1440,12 @@ class PlasmidView2(DNApyBaseDrawingClass):
 
 		#arrange buttons vertically
 		sizer = wx.BoxSizer(wx.VERTICAL)
-		sizer.Add(item=circle)
-		sizer.Add(item=group)
-		sizer.Add(item=radiating)
-		sizer.Add(item=newfeature)
-		sizer.Add(item=deletefeature)
-		sizer.Add(item=edit)
+		sizer.Add(circle)
+		sizer.Add(group)
+		sizer.Add(radiating)
+		sizer.Add(newfeature)
+		sizer.Add(deletefeature)
+		sizer.Add(edit)
 
 		panel1.SetSizer(sizer)
 
@@ -1463,15 +1456,15 @@ class PlasmidView2(DNApyBaseDrawingClass):
 		self.plasmid_view = drawPlasmid(panel2, -1)
 
 		sizer1 = wx.BoxSizer(wx.HORIZONTAL)
-		sizer1.Add(item=self.plasmid_view, proportion=-1, flag=wx.EXPAND)
+		sizer1.Add(self.plasmid_view, proportion=-1, flag=wx.EXPAND)
 		panel2.SetSizer(sizer1)
 
 
 
 		#add feature list and buttons horizontally
 		sizer2 = wx.BoxSizer(wx.HORIZONTAL)
-		sizer2.Add(item=panel2, proportion=-1, flag=wx.EXPAND)
-		sizer2.Add(item=panel1)
+		sizer2.Add(panel2, proportion=-1, flag=wx.EXPAND)
+		sizer2.Add(panel1)
 
 		self.SetSizer(sizer2)
 
@@ -1525,12 +1518,7 @@ class MyApp(wx.App):
 
 if __name__ == '__main__': #if script is run by itself and not loaded
 
-	files={}   #list with all configuration files
-	files['default_dir'] = os.path.abspath(os.path.dirname(sys.argv[0]))+"/"
-	files['default_dir']=string.replace(files['default_dir'], "\\", "/")
-	files['default_dir']=string.replace(files['default_dir'], "library.zip", "")
-	settings=files['default_dir']+"settings"   ##path to the file of the global settings
-	exec(compile(open(settings).read(), settings, 'exec')) #gets all the pre-assigned settings
+	config.load_defaults(globals())
 
 	genbank.dna_selection = (1, -1)	 #variable for storing current DNA selection
 	genbank.feature_selection = False #variable for storing current feature selection

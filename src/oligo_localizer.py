@@ -55,7 +55,7 @@ def re_const(oligo):
             re_out.append('[XNMRWSYKVHDBGATC]')
         elif char=='N':
             re_out.append('[NXMRWSYKVHDBGATC]')
-    re_out=string.join(re_out,'')
+    re_out=''.join(re_out)
     re_out="(?=(%s))" % re_out
     re_out_comp=re.compile(re_out,re.IGNORECASE)
     return re_out_comp

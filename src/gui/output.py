@@ -31,7 +31,7 @@
 
 import wx.richtext as rt
 import wx
-from base_class import DNApyBaseClass
+from .base_class import DNApyBaseClass
 #from wx.lib.pubsub import pub
 
 class create(DNApyBaseClass):
@@ -52,7 +52,7 @@ class create(DNApyBaseClass):
 #		pub.Publisher.subscribe(self.listen_to_updateUI, self.listening_group)
 
 		sizer = wx.BoxSizer(wx.HORIZONTAL)
-		sizer.Add(item=self.rtc, proportion=-1, flag=wx.EXPAND)
+		sizer.Add(self.rtc, proportion=-1, flag=wx.EXPAND)
 		self.SetSizer(sizer)
 
 

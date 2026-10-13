@@ -33,7 +33,7 @@
 import wx
 import os, sys
 import math
-import colcol
+from ..other import colcol
 
 
 
@@ -110,7 +110,7 @@ class DNApyBaseDrawingClass(DNApyBaseClass):
 		# Make new offscreen bitmap: this bitmap will always have the
 		# current drawing in it, so it can be used to save the image to
 		# a file, or whatever.
-		self._Buffer = wx.EmptyBitmap(*Size)
+		self._Buffer = wx.Bitmap(*Size)
 		self.update_ownUI()
 
 	def SaveToFile(self, FileName, FileType=wx.BITMAP_TYPE_PNG):
@@ -197,7 +197,7 @@ class DNApyBaseDrawingClass(DNApyBaseClass):
 		Takes the centre of a circle, an angle (in degrees) and a radius and calculates the correspoinding XY coordinate on the circle
 		'''
 		assert type(centre_x) is int and type(centre_y) is int, 'Error, the input coordinates need to be integers.'
- 		assert (type(angle) is int or type(angle) is float) and (type(radius) is int or type(radius) is float), 'Error, the input angle and radius need to be integers or floats.'
+		assert (type(angle) is int or type(angle) is float) and (type(radius) is int or type(radius) is float), 'Error, the input angle and radius need to be integers or floats.'
 		assert 0<=angle<=360, 'Error, the input angle is %s, but needs to be between 0 and 360.' % angle
 		x = int(centre_x + radius * math.cos((angle-90)*(math.pi/180)))
 		y = int(centre_y + radius * math.sin((angle-90)*(math.pi/180)))

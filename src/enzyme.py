@@ -41,13 +41,12 @@
 
 
 
-from base_class import DNApyBaseClass
-import wx
+import os
 import re
-import string
-from . import genbank
-import math
 import collections
+
+# the REBASE enzyme list shipped in the top-level resources folder
+ENZYME_FILE = os.path.join(os.path.dirname(os.path.dirname(os.path.realpath(__file__))), 'resources', 'emboss_e.txt')
 
 
 
@@ -107,6 +106,7 @@ class initRestriction(object):
 		restriction sites''' 
 		
 		# on init get the current DNA
+		self.gb 		= gb
 		self.oldDna 	= ''
 		self.currentDNA = gb.gbfile["dna"]
 		
@@ -145,7 +145,7 @@ class initRestriction(object):
 
 
 		# for this we have enzymes in folder /resources
-		with open('resources/emboss_e.txt') as f:
+		with open(ENZYME_FILE) as f:
 			for line in f:	
 				# each line is one enzyme, except the header
 				if ( line[:1] != "#" ):	
@@ -176,19 +176,19 @@ class initRestriction(object):
 					#.	not G or A or T or C	.	N
 					#-	gap of indeterminate length	
 					regpattern = lineparts[1]
-					regpattern = string.replace(regpattern,"U","T")
-					regpattern = string.replace(regpattern,"K","(G|T)")
-					regpattern = string.replace(regpattern,"M","(A|C)")
-					regpattern = string.replace(regpattern,"R","(A|G)")
-					regpattern = string.replace(regpattern,"Y","(C|T)")
-					regpattern = string.replace(regpattern,"S","(C|G)")
-					regpattern = string.replace(regpattern,"W","(A|T)")
-					regpattern = string.replace(regpattern,"B","[CGT]")
-					regpattern = string.replace(regpattern,"V","[ACG]")
-					regpattern = string.replace(regpattern,"H","[ACT]")
-					regpattern = string.replace(regpattern,"D","[AGT]")
-					regpattern = string.replace(regpattern,"N","[AGTC]")
-					regpattern = string.replace(regpattern,"X","[AGTC]")
+					regpattern = regpattern.replace("U","T")
+					regpattern = regpattern.replace("K","(G|T)")
+					regpattern = regpattern.replace("M","(A|C)")
+					regpattern = regpattern.replace("R","(A|G)")
+					regpattern = regpattern.replace("Y","(C|T)")
+					regpattern = regpattern.replace("S","(C|G)")
+					regpattern = regpattern.replace("W","(A|T)")
+					regpattern = regpattern.replace("B","[CGT]")
+					regpattern = regpattern.replace("V","[ACG]")
+					regpattern = regpattern.replace("H","[ACT]")
+					regpattern = regpattern.replace("D","[AGT]")
+					regpattern = regpattern.replace("N","[AGTC]")
+					regpattern = regpattern.replace("X","[AGTC]")
 
 			
 				
@@ -223,7 +223,7 @@ class initRestriction(object):
 			# circular dna
 			# we just inspect the region +-100 
 			# to find enzyme, which cut near 0 in a ciclic plasmid
-			if genbank.gb.gbfile['locus']['topology'] == 'circular':
+			if self.gb.gbfile['locus']['topology'] == 'circular':
 				circularDnaHelper = dnaseq[:100]  # helper of 200bp from 0 to 100
 			else:
 				circularDnaHelper = ''
@@ -255,7 +255,7 @@ class initRestriction(object):
 					if offset2 == 0: # if it just cuts once, we'll say None to the second cut
 						cut52	= None
 					else:
-						ncut52	= (match.start() + offset2) % modulo
+						cut52	= (match.start() + offset2) % modulo
 
 					dnaMatch 	= wholeDNA2Inspect[match.start():match.end()]
 				

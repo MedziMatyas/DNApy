@@ -31,9 +31,9 @@
 
 
 
-from wx.lib.pubsub import setupkwargs #this line not required in wxPython2.9.
  	                                  #See documentation for more detail
-from wx.lib.pubsub import pub
+from .compat import pub
+from . import config
 
 from copy import deepcopy
 import string
@@ -43,17 +43,17 @@ from os import access,listdir
 import sys, os
 import string
 
-import genbank
+from .. import genbank
 import wx.stc
 
-import pyperclip
+from .. import pyperclip
 import copy
 
-import output
-import dna
-from base_class import DNApyBaseClass
-import featurelist_GUI
-import plasmid_GUI
+from . import output
+from .. import dna
+from .base_class import DNApyBaseClass
+from . import featurelist_GUI
+from . import plasmid_GUI
 
 #TODO
 #fix statusbar in general
@@ -63,12 +63,7 @@ import plasmid_GUI
 
 
 
-files={}   #list with all configuration files
-files['default_dir'] = os.path.abspath(os.path.dirname(sys.argv[0]))+"/"
-files['default_dir']=string.replace(files['default_dir'], "\\", "/")
-files['default_dir']=string.replace(files['default_dir'], "library.zip", "")
-settings=files['default_dir']+"settings"   ##path to the file of the global settings
-exec(compile(open(settings).read(), settings, 'exec')) #gets all the pre-assigned settings
+config.load_defaults(globals())
 
 
 ############# Set up custom stc lexer class ##########################
@@ -354,7 +349,7 @@ class TextEdit(DNApyBaseClass):
 		self.stc.Bind(wx.EVT_KEY_DOWN, self.OnKeyPress) #This is important for controlling the input into the editor
 
 		sizer = wx.BoxSizer(wx.HORIZONTAL)
-		sizer.Add(item=self.stc, proportion=-1, flag=wx.EXPAND)
+		sizer.Add(self.stc, proportion=-1, flag=wx.EXPAND)
 		self.SetSizer(sizer)	
 		
 		self.Centre()
@@ -780,12 +775,7 @@ class MyApp(wx.App):
 
 if __name__ == '__main__': #if script is run by itself and not loaded	
 
-	files={}   #list with all configuration files
-	files['default_dir'] = os.path.abspath(os.path.dirname(sys.argv[0]))+"/"
-	files['default_dir']=string.replace(files['default_dir'], "\\", "/")
-	files['default_dir']=string.replace(files['default_dir'], "library.zip", "")
-	settings=files['default_dir']+"settings"   ##path to the file of the global settings
-	exec(compile(open(settings).read(), settings, 'exec')) #gets all the pre-assigned settings
+	config.load_defaults(globals())
 
 	genbank.dna_selection = (0, 0, -1)	 #variable for storing current DNA selection
 	genbank.feature_selection = False #variable for storing current feature selection

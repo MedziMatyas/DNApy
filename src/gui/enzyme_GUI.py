@@ -29,11 +29,11 @@
 #Get source code at: https://github.com/mengqvist/DNApy
 #
 
-from base_class import DNApyBaseClass
+from .base_class import DNApyBaseClass
 import wx
 import re
 import string
-import genbank
+from .. import genbank
 import math
 import collections
 
@@ -70,11 +70,11 @@ class EnzymeSelector(DNApyBaseClass):
 		self.radio3.Bind(wx.EVT_RADIOBUTTON,lambda event: self.showOnly(event, 2))	
 		self.radio4.Bind(wx.EVT_RADIOBUTTON,lambda event: self.showOnly(event, "commercial"))	
 	
-		veryfirstColumn.Add(item=self.txt1)
-		veryfirstColumn.Add(item=self.radio1)
-		veryfirstColumn.Add(item=self.radio4)
-		veryfirstColumn.Add(item=self.radio2)
-		veryfirstColumn.Add(item=self.radio3)
+		veryfirstColumn.Add(self.txt1)
+		veryfirstColumn.Add(self.radio1)
+		veryfirstColumn.Add(self.radio4)
+		veryfirstColumn.Add(self.radio2)
+		veryfirstColumn.Add(self.radio3)
 
 		
 
@@ -84,7 +84,7 @@ class EnzymeSelector(DNApyBaseClass):
 		self.labellb     = wx.StaticText(self, -1, '')
 		self.labellb.SetFont(font)
 		self.lb          = wx.ListBox(self,
-		                              size=(180, 300))
+					      size=(180, 300))
 		self.lb.Bind(wx.EVT_LISTBOX, self.onSelect)
 		
 		# textfield for automatet text input
@@ -94,9 +94,9 @@ class EnzymeSelector(DNApyBaseClass):
 		self.txt.SetFocus()
 		
 		# add items to sizer "firstColumn"
-		firstColumn.Add(item=self.labellb)
-		firstColumn.Add(item=self.lb)
-		firstColumn.Add(item=self.txt)
+		firstColumn.Add(self.labellb)
+		firstColumn.Add(self.lb)
+		firstColumn.Add(self.txt)
 		
 		
 		# second column 
@@ -113,9 +113,9 @@ class EnzymeSelector(DNApyBaseClass):
 		self.removeAllB.Bind(wx.EVT_BUTTON,self.removeAll)
 		
 		# add buttons to sizer "secondColumn"
-		secondColumn.Add(item=self.oneadd)
-		secondColumn.Add(item=self.remove)
-		secondColumn.Add(item=self.removeAllB)
+		secondColumn.Add(self.oneadd)
+		secondColumn.Add(self.remove)
+		secondColumn.Add(self.removeAllB)
 		
 
 		# thirt column
@@ -123,12 +123,12 @@ class EnzymeSelector(DNApyBaseClass):
 		self.labellb2     = wx.StaticText(self, -1, 'selected enzymes')
 		self.labellb2.SetFont(font)
 		self.lb2 = wx.ListBox(self,
-		        	 size=(180, 300))
+				 size=(180, 300))
 		self.lb2.Bind(wx.EVT_LISTBOX_DCLICK, self.removeOne)
 
 
-		thirdColumn.Add(item=self.labellb2)
-		thirdColumn.Add(item=self.lb2)
+		thirdColumn.Add(self.labellb2)
+		thirdColumn.Add(self.lb2)
 
 		
 		# button to cancel or finish editing:
@@ -139,8 +139,8 @@ class EnzymeSelector(DNApyBaseClass):
 		# every column now has to be added to the grid
 		#Use sizers add content in the correct arrangement
 		sizerClose  = wx.BoxSizer(wx.HORIZONTAL)
-		sizerClose.Add(item=self.cancel)
-		sizerClose.Add(item=self.ok)	
+		sizerClose.Add(self.cancel)
+		sizerClose.Add(self.ok)	
 					
 		# grid settings
 		hbox      = wx.BoxSizer(wx.HORIZONTAL)
@@ -159,7 +159,7 @@ class EnzymeSelector(DNApyBaseClass):
 		gridsizer.AddSpacer(1) 			 			# row 2, col 1
 		gridsizer.AddSpacer(1) 						# row 2, col 2
 		gridsizer.AddSpacer(1) 						# row 2, col 2
-		gridsizer.Add(item=sizerClose)   				# row 2, col 3
+		gridsizer.Add(sizerClose)   				# row 2, col 3
 		
 		#set sizer
 		self.SetSizer(hbox)
@@ -178,7 +178,7 @@ class EnzymeSelector(DNApyBaseClass):
 		label = btn.GetLabel()
 		message = "You just selected %s" % label
 		dlg = wx.MessageDialog(None, message, 'Message', 
-		                       wx.OK|wx.ICON_EXCLAMATION)
+				       wx.OK|wx.ICON_EXCLAMATION)
 		dlg.ShowModal()
 		dlg.Destroy()
 		
@@ -278,7 +278,7 @@ class EnzymeSelector(DNApyBaseClass):
 	# on select focus back on txt -> not working, why?
 	def onSelect(self, event):
 		#self.txt.SetFocus()
-        	return True
+		return True
 
 
 	# adds one item on buttonclick
@@ -428,7 +428,7 @@ class EnzymeSelectorDialog(wx.Dialog):
 		
 		#add sizer
 		sizer = wx.BoxSizer(wx.VERTICAL)
-		sizer.Add(item=self.content, proportion=0, flag=wx.EXPAND|wx.ALL)
+		sizer.Add(self.content, proportion=0, flag=wx.EXPAND|wx.ALL)
 
 		#set sizer
 		self.SetSizer(sizer)
@@ -479,7 +479,7 @@ class EnzymeDigestionDialog(wx.Dialog):
 		
 		#add sizer
 		sizer = wx.BoxSizer(wx.VERTICAL)
-		sizer.Add(item=self.content, proportion=0, flag=wx.EXPAND|wx.ALL)
+		sizer.Add(self.content, proportion=0, flag=wx.EXPAND|wx.ALL)
 
 		#set sizer
 		self.SetSizer(sizer)
@@ -537,7 +537,7 @@ class EnzymeDigestion(DNApyBaseClass):
 			# only add the name
 			selectableLadders.append(l[0])
 		# initialise ladder selector
-        	self.LadderSelect = wx.ComboBox(self,
+		self.LadderSelect = wx.ComboBox(self,
 				size=wx.DefaultSize,
 				choices=selectableLadders)
 		self.LadderSelect.Bind(wx.EVT_COMBOBOX, self.onSelect)
@@ -616,7 +616,7 @@ class EnzymeDigestion(DNApyBaseClass):
 		self.dc = wx.PaintDC(self.drawingSpace)				# initialise drawing space
 		self.dc.Clear()							# clear
 		self.gcdc = wx.GCDC(self.dc) 					# gcdc for nicer images
-		wx.EmptyBitmap(self.drawingSpace.ClientSize[0], self.drawingSpace.ClientSize[1])
+		wx.Bitmap(self.drawingSpace.ClientSize[0], self.drawingSpace.ClientSize[1])
 
 				
 		laneSpacer = 12				# space between lanes
@@ -1035,7 +1035,7 @@ class AddLadderDialog(wx.Dialog):
 		
 		#add sizer
 		sizer = wx.BoxSizer(wx.VERTICAL)
-		sizer.Add(item=self.content, proportion=0, flag=wx.EXPAND|wx.ALL)
+		sizer.Add(self.content, proportion=0, flag=wx.EXPAND|wx.ALL)
 
 		#set sizer
 		self.SetSizer(sizer)

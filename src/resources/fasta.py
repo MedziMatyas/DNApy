@@ -61,6 +61,6 @@ def parseFile(filepath):
 	The input is the absolute filepath including the filename (as a string).
 	The parsed data is returned as id, dna tuples in a generator.
 	"""
-	f = open(filepath)
-	string = f.read()
+	with open(filepath) as f:
+		string = f.read()
 	return parseString(string)
