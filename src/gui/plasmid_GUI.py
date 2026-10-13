@@ -37,7 +37,7 @@
 import wx
 
 import cairo
-from wx.lib.wxcairo import ContextFromDC
+from wx.lib.wxcairo import BitmapFromImageSurface
 
  	                                  	#See documentation for more detail
 from .compat import pub
@@ -208,6 +208,16 @@ class drawPlasmid(DNApyBaseDrawingClass):
 		This code re-draws the buffer, then calls Update, which forces a paint event.
 		"""	
 
+		# draw on a cairo image and turn it into the bitmap that is shown on paint events.
+		# (Drawing directly on a device context mixes GDI and cairo drawing on Windows.)
+		# The context is made first, since the calculations below use it to measure paths.
+		width, height 	= self._Buffer.GetSize()
+		surface 		= cairo.ImageSurface(cairo.FORMAT_ARGB32, max(width, 1), max(height, 1))
+		self.ctx 		= cairo.Context(surface)
+		self.ctx.set_source_rgb(1, 1, 1)
+		self.ctx.paint() # white background
+		self.normalizeCanvas()
+
 		# update selection from editor
 		self.updateSelection() 
 		self.updatePosition()
@@ -219,13 +229,6 @@ class drawPlasmid(DNApyBaseDrawingClass):
 		
 		# check if we even have to redraw anything:
 
-		dc = wx.MemoryDC()
-		dc.SelectObject(self._Buffer)
-
-		dc.SetBackground(wx.Brush("White"))	# start the DC and clear it
-		dc.Clear() 				# make sure you clear the bitmap!
-		self.ctx = ContextFromDC(dc)		# load it into cairo
-		
 		# seletion starts here
 		self.checkSelectionCalculations()		# check and make a selection arc
 
@@ -236,8 +239,9 @@ class drawPlasmid(DNApyBaseDrawingClass):
 
 		self.draw()
 
-		dc.SelectObject(wx.NullBitmap) # need to get rid of the MemoryDC before Update() is called.
-		self.Refresh()
+		surface.flush()
+		self._Buffer = BitmapFromImageSurface(surface)
+		self.Refresh(False) # no need to erase the background, the buffer covers everything
 		self.Update()
 
 		return None
@@ -973,10 +977,12 @@ class drawPlasmid(DNApyBaseDrawingClass):
 		# enzymes, features etc: merge
 		Labels = F + E
 		Labels = sorted(Labels, key=lambda x: x[0]) 
+		if len(Labels) == 0: # nothing to arrange
+			return Labels
 		
 		# find the most horiziontal one
 		horzI = None
-		horzN = self.dnaLength
+		horzN = float('inf') # so that the first label is always a candidate
 		if index == -1:
 			target = self.dnaLength / 4 * 1
 		else:
@@ -1130,7 +1136,7 @@ class drawPlasmid(DNApyBaseDrawingClass):
 		enzymes 	=  genbank.gb.restrictionEnzymes.selection
 		# create hash of selection and DNA
 		hashable 	= "%s%s" % (frozenset(enzymes), genbank.gb.gbfile['dna'])
-		e1 			= hashlib.md5(hashable).hexdigest()
+		e1 			= hashlib.md5(hashable.encode('utf-8')).hexdigest()
 
 		labels = []
 
@@ -1210,9 +1216,9 @@ class drawPlasmid(DNApyBaseDrawingClass):
 	############################################
 	# drawing functions
 
-	def draw(self):
-		''' # print the stored elements on th canvas'''
-		# prepare the canvas
+	def normalizeCanvas(self):
+		'''Scale and move the canvas, so that the plasmid is drawn in a 100 x 100 unit area with its center at 0,0.
+		This is done once for every new cairo context, before anything is calculated or drawn.'''
 		width, height = self.GetVirtualSize()
 		if width < height:
 			ratio = float(width)/float(height)
@@ -1228,6 +1234,9 @@ class drawPlasmid(DNApyBaseDrawingClass):
 				self.ctx.scale(width*ratio, height) # Normalizing the canvas
 				self.ctx.scale(0.01, 0.01) 			# make it 100*ratiox100
 				self.ctx.translate (50/ratio,50) 		# set center to 0,0
+
+	def draw(self):
+		''' # print the stored elements on th canvas'''
 		self.drawFeatures()
 		self.drawLabels()
 		self.drawSelection()
@@ -1268,7 +1277,7 @@ class drawPlasmid(DNApyBaseDrawingClass):
 			path 		= self.plasmidstore.drawnfeatures[a][0]
 			# get color
 			featuretype = self.plasmidstore.drawnfeatures[a][1]
-			color = eval(featuretype)['fw'] #get the color of feature (as string)
+			color = config.feature_colour(globals(), featuretype)['fw'] #get the color of feature (as string)
 			assert type(color) == str
 			r,g,b = colcol.hex_to_rgb(color)
 			r = float(r)/255

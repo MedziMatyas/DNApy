@@ -125,7 +125,7 @@ class DNALexer(BaseLexer):
 				featuretype = featuretype.replace('-', 'a') #for -10 and -35 region
 				featuretype = featuretype.replace("5'", "a5") #for 5' features
 				featuretype = featuretype.replace("3'", "a3") #for 5' features
-				color = eval(featuretype)['color'] #get the color of feature (as string)
+				color = config.feature_colour(globals(), featuretype)['color'] #get the color of feature (as string)
 				assert type(color) == str
 
 				if color == 'red' and complement == False: 

@@ -14,5 +14,6 @@ if wx.Platform == '__WXMSW__':
     dir_separator="\\"
 else:
     dir_separator="/"
-exec(compile(open(os.path.join(files['settings_dir'], files['font'])).read(), 'font', 'exec'))
+with open(os.path.join(files['settings_dir'], files['font'])) as f:
+    exec(compile(f.read(), 'font', 'exec'))
 #----------------------------------------------------------------------             

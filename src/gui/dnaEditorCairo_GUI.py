@@ -30,7 +30,6 @@
 #
 
 
- 	                                  #See documentation for more detail
 from .compat import pub
 from . import config
 
@@ -56,9 +55,8 @@ from . import featureedit_GUI
 
 # drawing
 import cairo
-from wx.lib.wxcairo import ContextFromDC
-import pango # for text
-import pangocairo # for glyphs and text
+from wx.lib.wxcairo import BitmapFromImageSurface
+from .monolayout import MonoLayout, select_monospace_font # for the text layout
 import math
 
 # for color function
@@ -98,6 +96,7 @@ class TextEdit(DNApyBaseDrawingClass):
 		self.textSpacing 	= 80	# seperation of lines
 		self.fontsize 		= 9		# line size
 		self.lineGap 		= 6
+		self.letterSpacing	= 1500 / 1024.0 # extra pixels between characters
 		
 		# interactive cursor
 		self.PositionPointer 		= 1
@@ -120,6 +119,11 @@ class TextEdit(DNApyBaseDrawingClass):
 		
 		
 		
+		self.updating = False # True while the drawing is updated
+
+		# context for testing which path is under the mouse
+		self.hitContext = cairo.Context(cairo.ImageSurface(cairo.FORMAT_ARGB32, 1, 1))
+
 		# call window
 		DNApyBaseDrawingClass.__init__(self, parent, wx.ID_ANY)
 
@@ -142,6 +146,20 @@ class TextEdit(DNApyBaseDrawingClass):
 
 	def update_ownUI(self):
 		"""
+		Redraw the editor. Resizing the editor below triggers resize events, which call this method again.
+		Those nested calls are ignored, the drawing of the outer call already uses the new size.
+		"""
+		if self.updating:
+			return None
+		self.updating = True
+		try:
+			self.redraw()
+		finally:
+			self.updating = False
+		return None
+
+	def redraw(self):
+		"""
 		This would get called if the drawing needed to change, for whatever reason.
 
 		The idea here is that the drawing is based on some data generated
@@ -160,8 +178,12 @@ class TextEdit(DNApyBaseDrawingClass):
 		wC, hC = self.parent.GetClientSize()
 
 		wP, hP = self.parent.GetSize()
-		self.SetSize(wx.Size(wC, self.minHeight))
-		self.parent.SetVirtualSize(wx.Size(wC-30, self.minHeight))
+		# only resize if something changed, otherwise the resize events keep triggering each other
+		if self.GetSize() != wx.Size(wC, self.minHeight):
+			self.SetSize(wx.Size(wC, self.minHeight))
+		virtualWidth = max(wC-30, 1) # leave room for the scrollbar, a negative size is not valid
+		if self.parent.GetVirtualSize() != wx.Size(virtualWidth, self.minHeight):
+			self.parent.SetVirtualSize(wx.Size(virtualWidth, self.minHeight))
 		
 
 		# Make new offscreen bitmap: this bitmap will always have the
@@ -175,16 +197,14 @@ class TextEdit(DNApyBaseDrawingClass):
 				
 		##########################
 
-		# start dc
-		dc = wx.MemoryDC()
-		dc.SelectObject(self._Buffer)
-		dc.SetBackground(wx.Brush("White"))
-		dc.Clear() 
-		# make a cairo context
-		self.ctx = ContextFromDC(dc)		
-		# start pango as a font backend
-		self.pango = pangocairo.CairoContext(self.ctx)
-		self.pango.set_antialias(cairo.ANTIALIAS_SUBPIXEL)
+		# draw on a cairo image and turn it into the bitmap that is shown on paint events.
+		# (Drawing directly on a device context mixes GDI and cairo drawing on Windows.)
+		width, height 	= self._Buffer.GetSize()
+		surface 		= cairo.ImageSurface(cairo.FORMAT_ARGB32, max(width, 1), max(height, 1))
+		self.ctx 		= cairo.Context(surface)
+		self.ctx.set_source_rgb(1, 1, 1)
+		self.ctx.paint() # white background
+		self.ctx.set_antialias(cairo.ANTIALIAS_SUBPIXEL)
 		
 		# reload dna
 		self.dna = genbank.gb.GetDNA()
@@ -211,8 +231,10 @@ class TextEdit(DNApyBaseDrawingClass):
 	
 		
 		# end of canvas handling
-		dc.SelectObject(wx.NullBitmap) # need to get rid of the MemoryDC before Update() is called.
-		self.Refresh()
+		surface.flush()
+		self._Buffer = BitmapFromImageSurface(surface)
+		self.ctx = None
+		self.Refresh(False) # no need to erase the background, the buffer covers everything
 		self.Update()
 
 		return None
@@ -234,37 +256,21 @@ class TextEdit(DNApyBaseDrawingClass):
 		# save with for other functions
 		self.w = w
 
-		# start layout
-		layout 			= self.pango.create_layout()
-		layout.set_wrap(pango.WRAP_WORD_CHAR)
-		layout.set_width(pango.SCALE * w)
-		layout.set_spacing(pango.SCALE *self.textSpacing) 
-		layout.set_alignment(pango.ALIGN_LEFT)
+		# set the font and measure it
+		fontpx 			= self.fontsize * 96 / 72.0 # the font size is in points, cairo wants pixels
+		select_monospace_font(self.ctx, fontpx)
+		ascent, descent, textHeight, xmax, ymax = self.ctx.font_extents()
+		charWidth 		= self.ctx.text_extents('M')[4] + self.letterSpacing
 
-		
-		# new attr list for the dna
-		dnaAttr = pango.AttrList()
-		# color
-		gray 		= 56 * 65535/255
-		fg_color	= pango.AttrForeground(gray,gray,gray, 0, len(self.dna))
-		spacing 	= pango.AttrLetterSpacing(1500, 0, len(self.dna))
-		# add attr
-		dnaAttr.insert(fg_color)
-		dnaAttr.insert(spacing)
-		# set attr
-		layout.set_attributes(dnaAttr)
-		
-		#set font
-		font = pango.FontDescription("monospace normal "+ "1")
-		font.set_size(pango.SCALE * self.fontsize)
-		layout.set_font_description(font)
-		
-		# font and color are prepared for the DNA
+		# wrap the text. The sense layout is also used to find the positions of characters later on
+		self.senseLayout 	= MonoLayout(len(self.dna), charWidth, textHeight, self.textSpacing, w)
+		self.lineLength 	= self.senseLayout.line_length
+		self.lineHeight 	= self.senseLayout.line_height
+		self.ascent 		= ascent
 
-		
-		
 		# get selection, if any
 		start, end, zero = self.get_selection()
+		highlight = [] # ranges of characters that are selected, as (first, last+1)
 		if end != -1:
 			# correct direktion of selection
 			if start > end:
@@ -273,50 +279,44 @@ class TextEdit(DNApyBaseDrawingClass):
 			else:
 				s 	= start - 1
 				e	= end
-		# make markup selection
-		if abs(end-start) >= 0 and zero == -1 and end != -1 :
-			senseText = self.dna[0:s] + '<span background="#0082ED">'+self.dna[s:e] + '</span>' + self.dna[e:]
-			antiText = self.cdna[0:s] + '<span background="#0082ED">'+self.cdna[s:e] + '</span>' + self.cdna[e:]	
-			
-		elif abs(end-start) >= 0 and zero == 1 and end != -1:
-			senseText = '<span background="#0082ED">'+self.dna[0:s] + '</span>' + self.dna[s:e] + '<span background="#0082ED">'+self.dna[e:] + '</span>'
-			antiText = '<span background="#0082ED">'+self.cdna[0:s] + '</span>' + self.cdna[s:e] + '<span background="#0082ED">'+self.cdna[e:] + '</span>'
-		else:
-			senseText = self.dna
-			antiText  = self.cdna
-		
-		# output dna
-		self.ctx.move_to(self.dX,self.sY)
-		layout.set_markup(senseText)
-		self.pango.update_layout(layout)
-		self.pango.show_layout(layout)
-		
-		# copy sense layout
-		self.senseLayout = layout.copy() 
+			if zero == -1:
+				highlight = [(s, e)]
+			elif zero == 1: # selection over the zero point
+				highlight = [(0, s), (e, len(self.dna))]
 
-		
-		# determine the length and height of a line
-		self.lineLength =  layout.get_line(0).length
-		x1, y1, w1, h1 	= self.senseLayout.index_to_pos(1)
-		x2, y2, w2, h2 	= self.senseLayout.index_to_pos(1+self.lineLength)
-		self.lineHeight = abs(y1 - y2) / pango.SCALE
-		
-		# print anti sense strain
-		self.ctx.move_to(self.dX,self.sY + self.fontsize + self.lineGap)
-		layout.set_markup(antiText)
-		self.pango.update_layout(layout)
-		self.pango.show_layout(layout)
-		
+		# output dna and the complementary strand just below it
+		self.drawStrand(self.dna, self.sY, highlight)
+		self.drawStrand(self.cdna, self.sY + self.fontsize + self.lineGap, highlight)
+
 		# update the height of the context, based on the inserted dna
-		w, h = layout.get_pixel_size()
-		self.minHeight = h + 2*self.sY
-		# resize window
-#		w,h = self.GetSize()					# prevents missfomration on resize
-#		self.SetSize(wx.Size(w,self.minHeight)) # prevents missfomration on resize
-		
+		self.minHeight = int(math.ceil(self.senseLayout.pixel_size[1] + 2*self.sY))
+
 		return None
-	
-	
+
+
+	def drawStrand(self, text, top, highlight):
+		'''Draw one strand as lines of text. `top` is the y position of the first line,
+		`highlight` is a list of (first, last+1) character ranges that get a selection background.'''
+		layout = self.senseLayout
+
+		# selection background
+		self.ctx.set_source_rgb(0, 130/255.0, 237/255.0) # #0082ED
+		for first, last in highlight:
+			for x, y, w, h in layout.span_rects(first, last):
+				self.ctx.rectangle(self.dX + x, top + y, w, h)
+		self.ctx.fill()
+
+		# the text, one line at a time. The glyphs are placed by hand, since the font may have a different advance
+		gray = 56 / 255.0
+		self.ctx.set_source_rgb(gray, gray, gray)
+		scaled_font = self.ctx.get_scaled_font()
+		for first in range(0, len(text), layout.line_length):
+			line 	= text[first:first+layout.line_length]
+			x, y, w, h = layout.index_to_pos(first)
+			glyphs 	= scaled_font.text_to_glyphs(0, 0, line, False)
+			self.ctx.show_glyphs([(g[0], self.dX + x + i*layout.char_width, top + y + self.ascent)
+									for i, g in enumerate(glyphs)])
+
 	def drawFeatures(self):
 		features 	= genbank.gb.get_all_feature_positions()
 		paths 		= {} # (color, path)
@@ -348,12 +348,11 @@ class TextEdit(DNApyBaseDrawingClass):
 					xf, yf, wf, hf = self.senseLayout.index_to_pos(finish+1)
 					# linecount:
 					# if ys and yf are not the same, we have feature over multiple lines!
-					dy 		= abs(ys - yf) / pango.SCALE
+					dy 		= abs(ys - yf)
 					ySteps 	= dy / self.lineHeight # number of lines!
-					xs 		= xs / pango.SCALE
-					xf 		= xf / pango.SCALE
-					ys		= (ys / pango.SCALE) + self.sY 
-					yf		= yf / pango.SCALE
+					xs 		= xs + self.dX # the text is drawn this far from the border
+					xf 		= xf + self.dX
+					ys		= ys + self.sY
 					
 					# first sense strain over the text
 					if complement == False:
@@ -393,7 +392,7 @@ class TextEdit(DNApyBaseDrawingClass):
 						fillpath = self.ctx.copy_path()
 						self.ctx.new_path()
 						# get color
-						color = eval(featuretype)['fw'] #get the color of feature (as string)
+						color = config.feature_colour(globals(), featuretype)['fw'] #get the color of feature (as string)
 					else:
 						self.drawn_rv_locations, l = self.find_overlap(self.drawn_rv_locations, (start, finish))				
 						level = l * (featureheight+6)
@@ -440,7 +439,7 @@ class TextEdit(DNApyBaseDrawingClass):
 						fillpath = self.ctx.copy_path()
 						self.ctx.new_path()
 						# get color
-						color = eval(featuretype)['fw'] #get the color of feature (as string)
+						color = config.feature_colour(globals(), featuretype)['fw'] #get the color of feature (as string)
 
 					
 					paths[hname] = (color,fillpath ,textpath)
@@ -482,7 +481,7 @@ class TextEdit(DNApyBaseDrawingClass):
 		enzymes 	=  genbank.gb.restrictionEnzymes.selection
 		# create hash of selection and DNA
 		hashable 	= "%s%s" % (frozenset(enzymes), genbank.gb.gbfile['dna'])
-		e1 			= hashlib.md5(hashable).hexdigest()
+		e1 			= hashlib.md5(hashable.encode('utf-8')).hexdigest()
 		
 		if e1 != self.cairoStorage['enzymes']:
 			nameheight = 9 # px
@@ -501,9 +500,9 @@ class TextEdit(DNApyBaseDrawingClass):
 					
 					# get position to draw
 					xs, ys, ws, hs = self.senseLayout.index_to_pos(startRef)
-					xs = xs / pango.SCALE + self.dX
-					ys = ys / pango.SCALE + self.sY
-					hs = hs / pango.SCALE
+					xs = xs + self.dX
+					ys = ys + self.sY
+					hs = hs
 					# move there, but above the line
 					y = ys# - hs
 					self.ctx.move_to(xs,y)
@@ -514,11 +513,11 @@ class TextEdit(DNApyBaseDrawingClass):
 					# make a line, representing the cut
 					xC51, yC51, wC51, hC51 	= self.senseLayout.index_to_pos(startRef + enzymes[e].c51)
 					xC31, yC31, wC31, hC31 	= self.senseLayout.index_to_pos(startRef + enzymes[e].c31)
-					xC51 					= xC51 / pango.SCALE + self.dX
-					yC51 					= yC51 / pango.SCALE + self.sY
-					tHeight 				= hC51 / pango.SCALE
-					xC31 					= xC31 / pango.SCALE +  self.dX
-					yC31 					= yC31 / pango.SCALE + self.sY
+					xC51 					= xC51 + self.dX
+					yC51 					= yC51 + self.sY
+					tHeight 				= hC51
+					xC31 					= xC31 +  self.dX
+					yC31 					= yC31 + self.sY
 					
 					if yC51 == yC31:
 						self.ctx.move_to(xC51, yC51)
@@ -572,7 +571,7 @@ class TextEdit(DNApyBaseDrawingClass):
 		# number of lines:
 		if len(self.dna) != 0 and self.cairoStorage['ticks'] != self.dna:
 			# count the lines:
-			nLines = math.ceil((len(self.dna)-1) / self.lineLength)
+			nLines = int(math.ceil(len(self.dna) / float(self.lineLength)))
 		
 			# empty paths:
 			self.cairoStorage['tPaths'] = []
@@ -582,7 +581,7 @@ class TextEdit(DNApyBaseDrawingClass):
 			
 			# clear paths
 			self.ctx.new_path()
-			while n <= nLines:
+			while n < nLines:
 				
 				self.ctx.move_to(self.dX + 3, y)
 				# make the tick
@@ -652,8 +651,8 @@ class TextEdit(DNApyBaseDrawingClass):
 			
 			# turn index to x,y
 			x, y, w, h 	= self.senseLayout.index_to_pos(index)
-			x 			= x / pango.SCALE + self.dX
-			y 			= (y / pango.SCALE) + self.sY
+			x 			= x + self.dX
+			y 			= (y) + self.sY
 			y1 			= y 
 			y2 			= y + 0.5 * self.lineHeight
 			
@@ -689,8 +688,8 @@ class TextEdit(DNApyBaseDrawingClass):
 		
 		# get position
 		x, y 				= self.ScreenToClient(wx.GetMousePosition())
-		xp 					= (x - self.dX) * pango.SCALE
-		yp 					= int(y - self.sY - self.fontsize) * pango.SCALE 
+		xp 					= (x - self.dX)
+		yp 					= int(y - self.sY - self.fontsize) 
 		self.LeftDownIndex 	= None
 		index 				= self.senseLayout.xy_to_index(xp,yp)
 		
@@ -770,8 +769,8 @@ class TextEdit(DNApyBaseDrawingClass):
 			
 			# get position
 			x, y 				= self.ScreenToClient(wx.GetMousePosition())
-			xp 					= (x - self.dX) * pango.SCALE
-			yp 					= int(y - self.sY - self.fontsize) * pango.SCALE 
+			xp 					= (x - self.dX)
+			yp 					= int(y - self.sY - self.fontsize) 
 			self.LeftMotionIndex 	= None
 			index 				=  self.senseLayout.xy_to_index(xp,yp)
 			# get motion cursor
@@ -866,7 +865,8 @@ class TextEdit(DNApyBaseDrawingClass):
 
 		# get the mouse positions
 		x, y 	= self.ScreenToClient(wx.GetMousePosition())
-		x2, y2 	= self.ctx.device_to_user(x,y)
+		x2, y2 	= x, y # the drawing is not scaled or moved, so device and user coordinates are the same
+		ctx 	= self.hitContext # a context that is only used to test paths, it does not draw anything
 
 		
 		# list of all the paths:
@@ -880,14 +880,14 @@ class TextEdit(DNApyBaseDrawingClass):
 					path = path[1]
 				
 				# load the path
-				self.ctx.append_path(path)
-				self.ctx.set_line_width(0.1) # reduce linewith, so we can have nice clicking detection
-				inFill 		= self.ctx.in_fill(x2,y2)
-				inStroke 	= self.ctx.in_stroke(x2,y2)
+				ctx.append_path(path)
+				ctx.set_line_width(0.1) # reduce linewith, so we can have nice clicking detection
+				inFill 		= ctx.in_fill(x2,y2)
+				inStroke 	= ctx.in_stroke(x2,y2)
 				# check if this path is hit
 				if inFill == True or inStroke == True:
 					hit = i
-				self.ctx.new_path()
+				ctx.new_path()
 
 		return hit
 	
@@ -1088,10 +1088,10 @@ class TextEdit(DNApyBaseDrawingClass):
 		self.set_cursor_position() # udpate cursor position, just in case
 
 ##########################
-	#def make_outputpopup(self):
-	#	'''Creates a popup window in which output can be printed'''
-	#	self.outputframe = wx.Frame(None, title="Output Panel") # creation of a Frame with a title
-	#	self.output = output.create(self.outputframe, style=wx.VSCROLL|wx.HSCROLL) # creation of a richtextctrl in the frame
+	def make_outputpopup(self):
+		'''Creates a popup window in which output can be printed'''
+		self.outputframe = wx.Frame(None, title="Output Panel") # creation of a Frame with a title
+		self.output = output.create(self.outputframe, style=wx.VSCROLL|wx.HSCROLL) # creation of a richtextctrl in the frame
 
 
 
@@ -1264,7 +1264,7 @@ class TextEdit(DNApyBaseDrawingClass):
 
 	def translate_selection(self):
 		'''Translate selected DNA'''
-		start, finish = self.get_selection()
+		start, finish, zero = self.get_selection()
 		if finish == -1:
 			raise ValueError('Cannot translate an empty selection')
 		else:
@@ -1274,7 +1274,7 @@ class TextEdit(DNApyBaseDrawingClass):
 
 	def translate_selection_reverse_complement(self):
 		'''Translate reverse-complement of selected DNA'''
-		start, finish = self.get_selection()
+		start, finish, zero = self.get_selection()
 		if finish == -1:
 			raise ValueError('Cannot translate an empty selection')
 		else:
@@ -1285,10 +1285,12 @@ class TextEdit(DNApyBaseDrawingClass):
 #update this one...
 	def translate_feature(self):
 		'''Translate specified feature'''
-		feature = genbank.gb.allgbfeatures[2]
-		DNA = genbank.gb.getdnaforgbfeature(feature[4])
+		index = genbank.feature_selection
+		if index is False or index is None:
+			raise ValueError('Select a feature to translate it')
+		DNA = genbank.gb.GetFeatureDNA(index)
 		protein = dna.Translate(DNA)
-		self.translate_output(protein, DNA, 'feature "%s"' % feature[4][7:])
+		self.translate_output(protein, DNA, 'feature %s' % genbank.gb.get_feature_label(index))
 
 
 ################ other functions ###############################

@@ -137,7 +137,7 @@ class MixedBaseCodon(wx.Panel):
 		self.mixed_base_codon.StyleSetBackground(style=wx.stc.STC_STYLE_DEFAULT, back='#EEEEEE') #set background color of everything that is not text
 		self.mixed_base_codon.StyleSetBackground(style=0, back='#EEEEEE') #set background color of text
 		self.mixed_base_codon.StyleSetBackground(style=wx.stc.STC_STYLE_LINENUMBER, back='#EEEEEE') #sets color of left margin
-		self.mixed_base_codon.SetUseHorizontalScrollBar(show=False) #hide scrollbar
+		self.mixed_base_codon.SetUseHorizontalScrollBar(False) #hide scrollbar
 		face = textfont.GetFaceName()
 		size = textfont.GetPointSize()
 		self.mixed_base_codon.StyleSetSpec(wx.stc.STC_STYLE_DEFAULT,"face:%s,size:%d" % (face, size))
@@ -197,7 +197,8 @@ class MixedBaseCodon(wx.Panel):
 		globsizer.Add(self.target_hits, flag=wx.LEFT, border=10)
 		globsizer.Add(spacer2)
 		globsizer.Add(self.offtarget_hits, flag=wx.LEFT, border=10)
-		globsizer.Add(spacer1)
+		globsizer.AddSpacer(12) # a window can only be added to a sizer once
+
 		self.SetSizer(globsizer)
 		self.Center()
 

@@ -27,3 +27,19 @@ def load_defaults(namespace, variables=False):
         path = os.path.join(DEFAULT_SETTINGS_DIR, name)
         with open(path) as f:
             exec(compile(f.read(), path, 'exec'), namespace)
+
+
+def feature_colour(namespace, feature_key):
+    """
+    Colour definition (a dict with 'color', 'fw' and 'rv') for a GenBank feature key, from the settings in `namespace`.
+    Keys that are not valid Python names are written differently in the settings, for example
+    "-35_signal" is a35_signal, "5'UTR" is a5UTR and "D-loop" is Daloop. Unknown keys are grey.
+    """
+    name = feature_key.replace("'", '')
+    if name[:1] == '-' or name[:1].isdigit():
+        name = 'a' + name.lstrip('-')
+    name = name.replace('-', 'a')
+    colour = namespace.get(name)
+    if isinstance(colour, dict) and 'fw' in colour: # not just any name from the namespace
+        return colour
+    return namespace['grey']

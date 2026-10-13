@@ -81,6 +81,11 @@ class DNApyBaseDrawingClass(DNApyBaseClass):
 		self.Bind(wx.EVT_PAINT, self.OnPaint)
 		self.Bind(wx.EVT_SIZE, self.OnSize)
 
+		# The whole window is painted from the buffer, so the background must not be erased first.
+		# Erasing it before every paint is what makes the window flicker.
+		self.SetBackgroundStyle(wx.BG_STYLE_PAINT)
+		self.Bind(wx.EVT_ERASE_BACKGROUND, lambda event: None)
+
 		# OnSize called to make sure the buffer is initialized.
 		# This might result in OnSize getting called twice on some
 		# platforms at initialization, but little harm done.
@@ -110,7 +115,7 @@ class DNApyBaseDrawingClass(DNApyBaseClass):
 		# Make new offscreen bitmap: this bitmap will always have the
 		# current drawing in it, so it can be used to save the image to
 		# a file, or whatever.
-		self._Buffer = wx.Bitmap(*Size)
+		self._Buffer = wx.Bitmap(max(Size[0], 1), max(Size[1], 1)) # a bitmap needs at least one pixel
 		self.update_ownUI()
 
 	def SaveToFile(self, FileName, FileType=wx.BITMAP_TYPE_PNG):

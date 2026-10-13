@@ -6,6 +6,8 @@ import unittest
 
 from src import genbank
 
+from . import wxapp
+
 DATA = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data', 'test_plasmid.gb')
 
 # test_plasmid.gb (95 bp, circular):
@@ -253,13 +255,48 @@ class TestUndoRedo(unittest.TestCase):
         self.assertEqual(gb.GetDNA(1, 6), 'ATGGCT')
 
 
+class TestRealWorldFiles(unittest.TestCase):
+    """Files written by other programs differ from the minimal test file."""
+
+    def load_text(self, text):
+        with tempfile.TemporaryDirectory() as d:
+            path = os.path.join(d, 'other.gb')
+            with open(path, 'w', newline='') as f:
+                f.write(text)
+            return quiet(genbank.gbobject, path)
+
+    def fixture_text(self):
+        with open(DATA) as f:
+            return f.read()
+
+    def test_empty_accession_and_version_lines(self):
+        # e.g. the NEB pUC19 file has "ACCESSION" and "VERSION" without any value
+        text = self.fixture_text().replace('ACCESSION   .', 'ACCESSION').replace('VERSION     .', 'VERSION')
+        gb = self.load_text(text)
+        self.assertEqual(gb.GetDNA(), SEQ)
+        self.assertIsNone(gb.gbfile['version'])
+
+    def test_windows_line_endings(self):
+        gb = self.load_text(self.fixture_text().replace('\n', '\r\n'))
+        self.assertEqual(gb.GetDNA(), SEQ)
+        self.assertEqual(len(gb.get_all_features()), 2)
+
+    def test_feature_keys_that_start_with_a_dash_or_digit(self):
+        extra = ("     -35_signal      10..15\n"
+                 "                     /note=\"a promoter element\"\n"
+                 "     5'UTR           20..25\n")
+        gb = self.load_text(self.fixture_text().replace('ORIGIN', extra + 'ORIGIN'))
+        self.assertEqual([f['key'] for f in gb.get_all_features()], ['CDS', 'promoter', '-35_signal', "5'UTR"])
+        self.assertEqual(gb.get_all_features()[2]['location'], ['10..15'])
+
+
 @unittest.skipIf(genbank.wx is None, 'wxPython is not installed')
 class TestRichClipboard(unittest.TestCase):
     """RichCopy/RichPaste go through the wx clipboard, so they need a wx.App."""
 
     @classmethod
     def setUpClass(cls):
-        cls.app = genbank.wx.App(False)
+        cls.app = wxapp.get_app()
 
     def test_copy_and_paste_carries_features(self):
         gb = load()

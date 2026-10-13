@@ -60,6 +60,7 @@ from . import featurelist_GUI
 from . import plasmid_GUI
 from . import genbank_GUI
 from . import enzyme_GUI
+from . import mixed_base_codons_GUI
 #import mixed_base_codons_GUI
 
 
@@ -103,7 +104,7 @@ class DNAedit(DNApyBaseClass):
 		self.plasmidview = plasmid_GUI.PlasmidView2(splitter0, -1)
 				
 
-		splitter0.SplitVertically( self.scroll, self.plasmidview, sashPosition=(windowsize[0]/1.75))
+		splitter0.SplitVertically( self.scroll, self.plasmidview, sashPosition=int(windowsize[0]/1.75))
 
 		sizer = wx.BoxSizer(wx.HORIZONTAL)
 		sizer.Add(splitter0, proportion=-1, flag=wx.EXPAND)
@@ -251,13 +252,14 @@ class DNApy(wx.Frame):
 
 
 		elif self.fileopen == True: #if a file IS open, make a new window
-			subprocess.Popen("python ~/Python_files/DNApy/main.py 1", shell=True) #this needs a fix for windows
+			# start another instance of the program, from the repository root so that the package is found
+			subprocess.Popen([sys.executable, '-m', 'src.gui.main'], cwd=config.ROOT_DIR)
 
 	def open_file(self, evt):
 		'''Function for opening file'''
 		self.dir_to_open = default_filepath
-		self.dir_to_open = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe()))) #current script directory
-		dlg = wx.FileDialog( self, style=wx.FD_OPEN|wx.FILE_MUST_EXIST,   defaultDir=self.dir_to_open ,wildcard='GenBank files (*.gb)|*|Any file (*)|*')
+		self.dir_to_open = os.getcwd() # the folder the program was started from
+		dlg = wx.FileDialog( self, style=wx.FD_OPEN|wx.FD_FILE_MUST_EXIST,   defaultDir=self.dir_to_open ,wildcard='GenBank files (*.gb;*.gbk)|*.gb;*.gbk|Any file (*)|*')
 
 		if dlg.ShowModal() == wx.ID_CANCEL:
 			return     # the user does not want to open that file!
@@ -272,7 +274,8 @@ class DNApy(wx.Frame):
 
 
 
-		name, extension = genbank.gb.fileName.split('.')
+		name, extension = os.path.splitext(genbank.gb.fileName)
+		extension = extension.lstrip('.') # names can contain several dots
 		if extension.lower() == 'gb':
 			genbank.gb = genbank.gbobject(all_path) #make a genbank object and read file
 
@@ -323,7 +326,7 @@ class DNApy(wx.Frame):
 		else:
 			dire = default_filepath
 		#get save dialog
-		dlg = wx.FileDialog( self, style=wx.FD_SAVE | wx.OVERWRITE_PROMPT,defaultDir=dire,wildcard='TXT files (*)|*|Any file (*)|*')
+		dlg = wx.FileDialog( self, style=wx.FD_SAVE | wx.FD_OVERWRITE_PROMPT,defaultDir=dire,wildcard='GenBank files (*.gb)|*.gb|Any file (*)|*')
 		dlg.ShowModal()
 		all_path=dlg.GetPath()
 		fileName=dlg.GetFilename()
@@ -723,7 +726,7 @@ Put Table here
 		'''
 		if genbank.gb.gbfile["dna"]:
 			#launch the dialog
-			dlg = enzyme_GUI.EnzymeDigestionDialog(self, 'digestion', genbank.restriction_sites, genbank.restrictionEnzymes)
+			dlg = enzyme_GUI.EnzymeDigestionDialog(self, 'digestion', genbank.gb.restrictionEnzymes.selection, genbank.gb.restrictionEnzymes)
 			dlg.Center()
 			res = dlg.ShowModal() #alternatively, if main window should still be accessible use dlg.Show()
 
@@ -825,45 +828,45 @@ Put Table here
 
 		#New Document
 		self.frame_1_toolbar.AddTool(500, "New Document", wx.Bitmap(files['default_dir']+"/icon/new.png", wx.BITMAP_TYPE_ANY), wx.NullBitmap, wx.ITEM_NORMAL, 'New File', "New File") #last one is the one displayed in status bar
-		wx.EVT_TOOL(self, 500, self.new_file)
+		self.Bind(wx.EVT_TOOL, self.new_file, id=500)
 		#Open File
 		self.frame_1_toolbar.AddTool(501, "Open File", wx.Bitmap(files['default_dir']+"/icon/open.png", wx.BITMAP_TYPE_ANY), wx.NullBitmap, wx.ITEM_NORMAL, 'Load File', 'Load File')
-		wx.EVT_TOOL(self, 501, self.open_file)
+		self.Bind(wx.EVT_TOOL, self.open_file, id=501)
 		#Save current file
 		self.frame_1_toolbar.AddTool(502, "Save current file", wx.Bitmap(files['default_dir']+"/icon/save.png", wx.BITMAP_TYPE_ANY), wx.NullBitmap, wx.ITEM_NORMAL, 'Save File', 'Save File')
-		wx.EVT_TOOL(self, 502, self.save_file)
+		self.Bind(wx.EVT_TOOL, self.save_file, id=502)
 		#Save as
 		self.frame_1_toolbar.AddTool(503, "Save as", wx.Bitmap(files['default_dir']+"/icon/saveas.png", wx.BITMAP_TYPE_ANY), wx.NullBitmap, wx.ITEM_NORMAL, 'Save File As', 'Save File As')
-		wx.EVT_TOOL(self, 503, self.save_as_file)
+		self.Bind(wx.EVT_TOOL, self.save_as_file, id=503)
 		#cut
 		self.frame_1_toolbar.AddTool(504, "cut", wx.Bitmap(files['default_dir']+"/icon/cut.png", wx.BITMAP_TYPE_ANY), wx.NullBitmap, wx.ITEM_NORMAL, 'cut', 'cut')
-		wx.EVT_TOOL(self, 504, self.cut)
+		self.Bind(wx.EVT_TOOL, self.cut, id=504)
 		#copy
 		self.frame_1_toolbar.AddTool(505, "copy", wx.Bitmap(files['default_dir']+"/icon/copy.png", wx.BITMAP_TYPE_ANY), wx.NullBitmap, wx.ITEM_NORMAL, 'copy', 'copy')
-		wx.EVT_TOOL(self, 505, self.copy)
+		self.Bind(wx.EVT_TOOL, self.copy, id=505)
 		#paste
 		self.frame_1_toolbar.AddTool(506, "paste", wx.Bitmap(files['default_dir']+"/icon/paste.png", wx.BITMAP_TYPE_ANY), wx.NullBitmap, wx.ITEM_NORMAL, 'paste', 'paste')
-		wx.EVT_TOOL(self, 506, self.paste)
+		self.Bind(wx.EVT_TOOL, self.paste, id=506)
 		#Undo
 		self.frame_1_toolbar.AddTool(513, "Undo", wx.Bitmap(files['default_dir']+"/icon/undo.png", wx.BITMAP_TYPE_ANY), wx.NullBitmap, wx.ITEM_NORMAL, 'Undo', 'Undo')
-		wx.EVT_TOOL(self, 513, self.Undo)
+		self.Bind(wx.EVT_TOOL, self.Undo, id=513)
 		#Redo
 		self.frame_1_toolbar.AddTool(514, "Redo", wx.Bitmap(files['default_dir']+"/icon/redo.png", wx.BITMAP_TYPE_ANY), wx.NullBitmap, wx.ITEM_NORMAL, 'Redo', 'Redo')
-		wx.EVT_TOOL(self, 514, self.Redo)
+		self.Bind(wx.EVT_TOOL, self.Redo, id=514)
 		#Print current window
 #   	self.frame_1_toolbar.AddTool(510, "Print current window", wx.Bitmap(files['default_dir']+"/icon/print.png", wx.BITMAP_TYPE_ANY), wx.NullBitmap, wx.ITEM_NORMAL, 'Print Current Window', 'Print Current Window')
-#  		wx.EVT_TOOL(self, 510, self.print_setup)
+#  		self.Bind(wx.EVT_TOOL, self.print_setup, id=510)
 
-		self.frame_1_toolbar.AddCheckTool(511, wx.Bitmap(files['default_dir']+"/icon/search.png", wx.BITMAP_TYPE_ANY), wx.Bitmap(files['default_dir']+"/icon/search.png", wx.BITMAP_TYPE_ANY), 'Find', 'Find')
-		wx.EVT_TOOL(self, 511, self.toggle_searchandmutate_toolbar)
+		self.frame_1_toolbar.AddCheckTool(511, 'Find', wx.Bitmap(files['default_dir']+"/icon/search.png", wx.BITMAP_TYPE_ANY), wx.Bitmap(files['default_dir']+"/icon/search.png", wx.BITMAP_TYPE_ANY), 'Find', 'Find')
+		self.Bind(wx.EVT_TOOL, self.toggle_searchandmutate_toolbar, id=511)
 
-		self.frame_1_toolbar.AddCheckTool(512, wx.Bitmap(files['default_dir']+"/icon/mutate.png", wx.BITMAP_TYPE_ANY), wx.Bitmap(files['default_dir']+"/icon/search.png", wx.BITMAP_TYPE_ANY), 'Mutate', 'Mutate')
-		wx.EVT_TOOL(self, 512, self.toggle_searchandmutate_toolbar)
+		self.frame_1_toolbar.AddCheckTool(512, 'Mutate', wx.Bitmap(files['default_dir']+"/icon/mutate.png", wx.BITMAP_TYPE_ANY), wx.Bitmap(files['default_dir']+"/icon/search.png", wx.BITMAP_TYPE_ANY), 'Mutate', 'Mutate')
+		self.Bind(wx.EVT_TOOL, self.toggle_searchandmutate_toolbar, id=512)
 
 
 		#enzyme selector
 		self.frame_1_toolbar.AddTool(515, "Restriction Enzymes", wx.Bitmap(files['default_dir']+"/icon/restrictionEnzyme.png", wx.BITMAP_TYPE_ANY), wx.NullBitmap, wx.ITEM_NORMAL, 'Restriction Enzymes', 'Restriction Enzymes')
-		wx.EVT_TOOL(self, 515, self.SelectEnzymes)
+		self.Bind(wx.EVT_TOOL, self.SelectEnzymes, id=515)
 
 
 
@@ -915,7 +918,7 @@ Put Table here
 			self.nucleotideoraminoacid = wx.ComboBox(self.frame_2_toolbar, id=601, size=(120, 28), choices=['Nucleotide', 'Amino Acid'], style=wx.CB_READONLY)
 		self.frame_2_toolbar.AddControl(self.nucleotideoraminoacid)
 		self.nucleotideoraminoacid.SetSelection(self.nucleotideoraminoacidSelection)
-		wx.EVT_COMBOBOX(self, 601, self.OnChangeSearchParams)
+		self.Bind(wx.EVT_COMBOBOX, self.OnChangeSearchParams, id=601)
 
 		#'input'
 		self.searchinput=wx.TextCtrl(self.frame_2_toolbar, id=wx.ID_ANY, size=(250, 28), value="")
@@ -943,16 +946,16 @@ Put Table here
 		if typeof == 'Find':
 			#find previous
 			self.frame_2_toolbar.AddTool(507, "Find previous", wx.Bitmap(files['default_dir']+"/icon/up.png", wx.BITMAP_TYPE_ANY), wx.NullBitmap, wx.ITEM_NORMAL, 'Find previous', 'Find previous')
-			wx.EVT_TOOL(self, 507, self.find_previous)
+			self.Bind(wx.EVT_TOOL, self.find_previous, id=507)
 			#find next
 			self.frame_2_toolbar.AddTool(509, "Find next", wx.Bitmap(files['default_dir']+"/icon/down.png", wx.BITMAP_TYPE_ANY), wx.NullBitmap, wx.ITEM_NORMAL, 'Find next', 'Find next')
-			wx.EVT_TOOL(self, 509, self.find_next)
+			self.Bind(wx.EVT_TOOL, self.find_next, id=509)
 			#search glass
 			self.frame_2_toolbar.AddTool(604, "Find", wx.Bitmap(files['default_dir']+"/icon/search.png", wx.BITMAP_TYPE_ANY), wx.NullBitmap, wx.ITEM_NORMAL, 'Find', 'Find')
-			wx.EVT_TOOL(self, 604, self.find)
+			self.Bind(wx.EVT_TOOL, self.find, id=604)
 		elif typeof == 'Mutate':
 			self.frame_2_toolbar.AddTool(604, "Mutate", wx.Bitmap(files['default_dir']+"/icon/up.png", wx.BITMAP_TYPE_ANY), wx.NullBitmap, wx.ITEM_NORMAL, 'Mutate', 'Mutate')
-			wx.EVT_TOOL(self, 604, self.mutate)
+			self.Bind(wx.EVT_TOOL, self.mutate, id=604)
 
 	def find(self, evt):
 		'''Find nucleotide in molecule'''
@@ -1061,42 +1064,42 @@ Put Table here
 
 		#new document
 		fileitem.Append(1, "New\tCtrl+Q", "New File")
-		wx.EVT_MENU(self, 1, self.new_file)
+		self.Bind(wx.EVT_MENU, self.new_file, id=1)
 
 		#open document
 		fileitem.Append(2, "Open\tCtrl+O", "Open File")
-		wx.EVT_MENU(self, 2, self.open_file)
+		self.Bind(wx.EVT_MENU, self.open_file, id=2)
 		fileitem.AppendSeparator()
 
 		#save document
 		fileitem.Append(3, "Save\tCtrl+S", "Save current file")
-		wx.EVT_MENU(self, 3, self.save_file)
+		self.Bind(wx.EVT_MENU, self.save_file, id=3)
 
 		#save document as
 		fileitem.Append(4, "Save as\tShift+Ctrl+S", "Save a copy of current file")
-		wx.EVT_MENU(self, 4, self.save_as_file)
+		self.Bind(wx.EVT_MENU, self.save_as_file, id=4)
 
 		# export plasmid map as svg or png
 		fileitem.Append(5, "Export plasmid map\tShift+Ctrl+E", "Export the plasmid map only")
-		wx.EVT_MENU(self, 5, self.export_plasmid_map)
+		self.Bind(wx.EVT_MENU, self.export_plasmid_map, id=5)
 
 		#save all
 #		fileitem.Append(5, "Save all", "Save all open tabs")
-#		wx.EVT_MENU(self, 5, self.save_all)
+#		self.Bind(wx.EVT_MENU, self.save_all, id=5)
 #		fileitem.AppendSeparator()
 
 		#close single
 #		fileitem.Append(5, "Close", "Close current file")
-#		wx.EVT_MENU(self, 5, self.DNApy.dnaview.close_file)
+#		self.Bind(wx.EVT_MENU, self.DNApy.dnaview.close_file, id=5)
 
 		#close all
 #		fileitem.Append(6, "Close all", "Close all tabs")
-#		wx.EVT_MENU(self, 6, self.DNApy.dnaview.close_all)
+#		self.Bind(wx.EVT_MENU, self.DNApy.dnaview.close_all, id=6)
 #		fileitem.AppendSeparator()
 
 		#quit
 		fileitem.Append(7, "Quit", "Quit program")
-		wx.EVT_MENU(self, 7, self.quit)
+		self.Bind(wx.EVT_MENU, self.quit, id=7)
 
 		self.menubar.Append(fileitem, "&File")
 
@@ -1105,11 +1108,11 @@ Put Table here
 
 		#view genbank file
 		self.view.Append(201, "View GenBank", "View GenBank")
-		wx.EVT_MENU(self, 201, self.view_genbank)
+		self.Bind(wx.EVT_MENU, self.view_genbank, id=201)
 
 		#view output panel
 		self.view.Append(202, "View Output", "View Output")
-		wx.EVT_MENU(self, 202, self.view_output)
+		self.Bind(wx.EVT_MENU, self.view_output, id=202)
 
 
 		self.menubar.Append(self.view, "&View")
@@ -1118,65 +1121,65 @@ Put Table here
 		self.edit = wx.Menu()
 		#undo
 		self.edit.Append(9, "Undo\tCtrl+Z", "Undo")
-		wx.EVT_MENU(self, 9, self.Undo)
+		self.Bind(wx.EVT_MENU, self.Undo, id=9)
 
 		#redo
 		self.edit.Append(10, "Redo\tShift+Ctrl+Z", "Redo")
-		wx.EVT_MENU(self, 10, self.Redo)
+		self.Bind(wx.EVT_MENU, self.Redo, id=10)
 		self.edit.AppendSeparator() #________________________devider
 
 		#cut
 		self.edit.Append(11, "Cut\tCtrl+X", "cut selected DNA")
-		wx.EVT_MENU(self,11, self.cut)
+		self.Bind(wx.EVT_MENU, self.cut, id=11)
 
 		#copy
 		self.edit.Append(12, "Copy\tCtrl+C", "copy selected DNA")
-		wx.EVT_MENU(self, 12, self.copy)
+		self.Bind(wx.EVT_MENU, self.copy, id=12)
 
 		#paste
 		self.edit.Append(13, "Paste\tCtrl+V", "paste DNA")
-		wx.EVT_MENU(self, 13, self.paste)
+		self.Bind(wx.EVT_MENU, self.paste, id=13)
 
 		#cut reverse complement
 		self.edit.Append(111, "Cut Rev-Comp\tCtrl+Shift+X", "cut reverse-complement of selected DNA")
-		wx.EVT_MENU(self,111, self.cut_reverse_complement)
+		self.Bind(wx.EVT_MENU, self.cut_reverse_complement, id=111)
 
 		#copy reverse complement
 		self.edit.Append(121, "Copy Rev-Comp\tCtrl+Shift+C", "copy reverse-complement of selected DNA")
-		wx.EVT_MENU(self, 121, self.copy_reverse_complement)
+		self.Bind(wx.EVT_MENU, self.copy_reverse_complement, id=121)
 
 		#paste reverse complement
 		self.edit.Append(131, "Paste Rev-Comp\tCtrl+Shift+V", "paste reverse-complement of DNA")
-		wx.EVT_MENU(self, 131, self.paste_reverse_complement)
+		self.Bind(wx.EVT_MENU, self.paste_reverse_complement, id=131)
 
 		#reverse-complement selection
 		self.edit.Append(141, "Rev-Comp selection\tCtrl+R", "Reverse-complement seleected DNA")
-		wx.EVT_MENU(self,141, self.reverse_complement_selection)
+		self.Bind(wx.EVT_MENU, self.reverse_complement_selection, id=141)
 		self.edit.AppendSeparator() #________________________devider
 
 		#select all
 		self.edit.Append(14, "Select all\tCtrl+A", "Select all text")
-		wx.EVT_MENU(self, 14, self.select_all)
+		self.Bind(wx.EVT_MENU, self.select_all, id=14)
 		self.edit.AppendSeparator() #________________________devider
 
 		#uppercase
 		self.edit.Append(34, "Uppercase\tCtrl+U", "Convert selected text to uppercase")
-		wx.EVT_MENU(self, 34, self.uppercase)
+		self.Bind(wx.EVT_MENU, self.uppercase, id=34)
 
 		#lowercase
 		self.edit.Append(35, "Lowercase\tCtrl+L", "Convert selected text to lowercase")
 
-		wx.EVT_MENU(self, 35, self.lowercase)
+		self.Bind(wx.EVT_MENU, self.lowercase, id=35)
 		self.edit.AppendSeparator() #________________________devider
 
 
 		# search in dna # TODO enable search in DNA, does not work yet
 		#self.edit.Append(134, "Seach in DNA", "Search in DNA")
-		#wx.EVT_MENU(self, 134, self.toggle_searchandmutate_toolbar)
+		#self.Bind(wx.EVT_MENU, self.toggle_searchandmutate_toolbar, id=134)
 		
 		#Find mixed base codon
 		self.edit.Append(135, "Find mixed base codon", "Find mixed base codon")
-		wx.EVT_MENU(self, 135, self.mixed_base_codon_dlg)
+		self.Bind(wx.EVT_MENU, self.mixed_base_codon_dlg, id=135)
 
 
 
@@ -1189,10 +1192,10 @@ Put Table here
 		self.features = wx.Menu()
 
 		self.features.Append(40, "List Features", "List all features in file")
-		wx.EVT_MENU(self,40, self.list_features)
+		self.Bind(wx.EVT_MENU, self.list_features, id=40)
 
 #		self.features.Append(41, "Edit Features", "Edit features in file")
-#		wx.EVT_MENU(self,41, self.edit_features)
+#		self.Bind(wx.EVT_MENU, self.edit_features, id=41)
 
 		self.menubar.Append(self.features, "Features")
 
@@ -1201,10 +1204,10 @@ Put Table here
 		self.enzymes = wx.Menu()
 
 		self.enzymes.Append(50, "Select restriction enzymes\tCtrl+E", "select restriction enzymes")
-		wx.EVT_MENU(self,50,  self.SelectEnzymes)
+		self.Bind(wx.EVT_MENU, self.SelectEnzymes, id=50)
 
 		self.enzymes.Append(51, "Digest\tCtrl+D", "digest dna with selected enzymes")
-		wx.EVT_MENU(self,51,  self.digestDna)
+		self.Bind(wx.EVT_MENU, self.digestDna, id=51)
 
 
 		self.menubar.Append(self.enzymes, "Enzymes")
@@ -1216,15 +1219,15 @@ Put Table here
 
 		#translate
 		self.protein.Append(30, "Translate\tCtrl+T", "Translate DNA to protein")
-		wx.EVT_MENU(self,30, self.translate_selection)
+		self.Bind(wx.EVT_MENU, self.translate_selection, id=30)
 
 		#translate reverse complement
 		self.protein.Append(31, "Translate Rev-Comp\tCtrl+Shift+T", "Translate DNA to protein")
-		wx.EVT_MENU(self,31, self.translate_selection_reverse_complement)
+		self.Bind(wx.EVT_MENU, self.translate_selection_reverse_complement, id=31)
 
 		#translate feature
 		self.protein.Append(32, "Translate feature", "Translate DNA feature to protein")
-		wx.EVT_MENU(self,32, self.translate_feature)
+		self.Bind(wx.EVT_MENU, self.translate_feature, id=32)
 
 		self.menubar.Append(self.protein, "Protein")
 
@@ -1234,11 +1237,11 @@ Put Table here
 		self.help = wx.Menu()
 		#about program
 		self.help.Append(21, "About", "About this program")
-		wx.EVT_MENU(self, 21, self.info)
+		self.Bind(wx.EVT_MENU, self.info, id=21)
 
 		#print IUPAC codes for dna and AA
 		self.help.Append(22, "IUPAC codes", "IUPAC codes of DNA and amino acids")
-		wx.EVT_MENU(self, 22, self.IUPAC_codes)
+		self.Bind(wx.EVT_MENU, self.IUPAC_codes, id=22)
 
 
 		self.menubar.Append(self.help, "Help")

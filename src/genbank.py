@@ -201,7 +201,7 @@ class gbobject(object):
 				''', re.VERBOSE)
 
 		self._re_version = re.compile(r'''
-					VERSION \s+ ([-_.a-zA-Z0-9]+)* \s+ 		#match version, zero or one time
+					VERSION \s+ ([-_.a-zA-Z0-9]+)* \s* 		#match version, zero or one time (the line can be empty)
 					(?:GI:([0-9]+))*							#match gi, zero or one time
 					''', re.VERBOSE)
 
@@ -481,7 +481,7 @@ class gbobject(object):
 			
 				#the line either starts with 5 blanks and then a feature key (feature key line), or it start with 21 blanks and then / (qualifier line)
 
-				if line[0:5] == 5*' ' and (line[5] in 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ35') == True:
+				if line[0:5] == 5*' ' and (line[5] in 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ35-') == True: #feature keys can start with a letter, 3, 5 (3'UTR) or - (-10_signal)
 					key = line[5:20].rstrip('\t\n\x0b\x0c\r ')
 					location = line[21:].rstrip('\t\n\x0b\x0c\r ')
 					feature["key"] = key

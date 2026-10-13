@@ -296,11 +296,7 @@ class FeatureList(DNApyBaseClass):
 		'''Takes single feature and finds its color, if any'''
 		#piece of code to check if there are assigned colors to the features
 		
-		try: 
-			Key = eval(feature['key'])
-							
-		except:
-			Key = grey	
+		Key = config.feature_colour(globals(), feature['key'])
 		
 		complement = feature['complement']
 		if complement == True: self.current_highlight_color = Key['rv']
