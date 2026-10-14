@@ -92,11 +92,29 @@ class TestParsing(unittest.TestCase):
         self.assertIsNone(gb.gbfile['dna'])
         self.assertEqual(gb.fileName, 'New DNA')
 
-    @unittest.expectedFailure
     def test_taxonomy_keeps_its_spaces(self):
-        # known issue: 'other sequences' is parsed as 'othersequences'
         self.assertEqual(self.gb.gbfile['organism'][1:],
                          ['other sequences', 'artificial sequences'])
+
+    def test_taxonomy_that_wraps_over_several_lines(self):
+        with open(DATA) as f:
+            text = f.read().replace(
+                '            other sequences; artificial sequences.\n',
+                '            Eukaryota; Metazoa; Chordata; Craniata; Vertebrata; Euteleostomi;\n'
+                '            Mammalia; Eutheria; Euarchontoglires; Primates; Haplorrhini;\n'
+                '            Catarrhini; Hominidae; Homo.\n')
+        with tempfile.TemporaryDirectory() as d:
+            path = os.path.join(d, 'wrapped.gb')
+            with open(path, 'w') as f:
+                f.write(text)
+            gb = quiet(genbank.gbobject, path)
+        self.assertEqual(gb.gbfile['organism'][1:4], ['Eukaryota', 'Metazoa', 'Chordata'])
+        self.assertEqual(gb.gbfile['organism'][-3:], ['Catarrhini', 'Hominidae', 'Homo'])
+        self.assertEqual(len(gb.gbfile['organism']), 15)
+
+    def test_taxonomy_is_written_with_its_spaces(self):
+        text = self.gb.make_gbstring()
+        self.assertIn('other sequences; artificial sequences.', text)
 
 
 class TestSaving(unittest.TestCase):
@@ -236,13 +254,93 @@ class TestFeatureEditing(unittest.TestCase):
 
 
 class TestUndoRedo(unittest.TestCase):
-    @unittest.expectedFailure
     def test_undo_restores_the_state_before_the_first_edit(self):
-        # known issue: the loaded file is never stored as a version, so the first edit cannot be undone
         gb = load()
         quiet(gb.Upper, 1, 3)
-        quiet(gb.Undo)
+        self.assertTrue(gb.Undo())
         self.assertEqual(gb.GetDNA(1, 3), 'atg')
+
+    def test_nothing_to_undo_in_a_freshly_loaded_file(self):
+        gb = load()
+        self.assertFalse(gb.Undo())
+        self.assertEqual(gb.GetDNA(), SEQ)
+
+    def test_nothing_to_redo_after_the_last_edit(self):
+        gb = load()
+        quiet(gb.Upper, 1, 3)
+        self.assertFalse(gb.Redo())
+
+    def test_undo_all_the_way_back_and_redo_all_the_way_forward(self):
+        gb = load()
+        quiet(gb.Upper, 1, 3)
+        quiet(gb.Delete, 1, 3)
+        quiet(gb.Paste, 1, 'GGG')
+        states = [SEQ, 'ATG' + SEQ[3:], SEQ[3:], 'GGG' + SEQ[3:]]
+        self.assertEqual(gb.GetDNA(), states[3])
+        for expected in reversed(states[:3]):
+            self.assertTrue(gb.Undo())
+            self.assertEqual(gb.GetDNA(), expected)
+        self.assertFalse(gb.Undo())
+        for expected in states[1:]:
+            self.assertTrue(gb.Redo())
+            self.assertEqual(gb.GetDNA(), expected)
+        self.assertFalse(gb.Redo())
+
+    def test_undo_restores_the_features_too(self):
+        gb = load()
+        before = gb.get_all_feature_positions()
+        quiet(gb.Delete, 1, 3)
+        self.assertNotEqual(gb.get_all_feature_positions(), before)
+        gb.Undo()
+        self.assertEqual(gb.get_all_feature_positions(), before)
+
+    def test_a_new_edit_after_undo_removes_what_could_have_been_redone(self):
+        gb = load()
+        quiet(gb.Upper, 1, 3)
+        quiet(gb.Upper, 4, 6)
+        gb.Undo()
+        quiet(gb.Upper, 7, 9)
+        self.assertFalse(gb.Redo())
+        self.assertEqual(gb.GetDNA(1, 9), 'ATGgctAGC')
+        gb.Undo()
+        self.assertEqual(gb.GetDNA(1, 9), 'ATGgctagc')
+
+    def test_editing_after_undo_does_not_change_the_stored_versions(self):
+        gb = load()
+        quiet(gb.Upper, 1, 3)
+        gb.Undo()
+        quiet(gb.Delete, 1, 3)  # an edit on the restored state
+        gb.Undo()
+        self.assertEqual(gb.GetDNA(), SEQ)
+        gb.Redo()
+        self.assertEqual(gb.GetDNA(), SEQ[3:])
+
+    def test_undo_updates_the_restriction_sites(self):
+        gb = load()
+
+        def sites():
+            return gb.restrictionEnzymes.enzymeObj['BamHI'].restrictionSites
+        self.assertEqual(len(sites()), 1)
+        quiet(gb.Delete, 13, 18)  # removes GGATCC
+        self.assertEqual(len(sites()), 0)
+        gb.Undo()
+        self.assertEqual(len(sites()), 1)
+
+    def test_undo_keeps_the_file_path(self):
+        gb = load()
+        quiet(gb.Upper, 1, 3)
+        gb.SetFilepath('C:/somewhere/new.gb')
+        quiet(gb.Upper, 4, 6)
+        gb.Undo()
+        gb.Undo()
+        self.assertEqual(gb.GetFilepath(), 'C:/somewhere/new.gb')
+
+    def test_a_new_empty_file_can_be_undone_back_to_empty(self):
+        gb = genbank.gbobject()
+        quiet(gb.Paste, 1, 'ATGC')
+        self.assertEqual(gb.GetDNA(), 'ATGC')
+        gb.Undo()
+        self.assertIsNone(gb.GetDNA())
 
     def test_undo_and_redo_of_a_later_edit(self):
         gb = load()

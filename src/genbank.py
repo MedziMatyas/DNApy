@@ -210,7 +210,7 @@ class gbobject(object):
 		self.file_version_index = 0 #stores at which index the current file is					
 		
 		if filepath == None:
-			pass
+			self.reset_file_versions() # the empty file is the first version
 		else:
 			platform = sys.platform
 			if platform == 'win32':
@@ -260,7 +260,7 @@ class gbobject(object):
 				line_list.append(line)
 			
 		#add the loaded file state to the undo/redo list
-#		self.add_file_version()
+		self.reset_file_versions()
 
 		
 	def parse(self, line):
@@ -341,7 +341,8 @@ class gbobject(object):
 			
 			#here comes the taxonomy
 			taxon = ''.join(line_list[index+1:]).split(';') #join the rest of the entries and split on the ; delimiter
-			self.gbfile['organism'].extend([re.sub('[ .]+', '', x.replace('[','').replace(']','')) for x in taxon]) #now remove spaces and punctuations and add the taxonomy to the global data structure
+			taxon = [' '.join(x.replace('[','').replace(']','').split()).rstrip('.') for x in taxon] #one space between words (names such as 'other sequences' have spaces), no brackets, no final period
+			self.gbfile['organism'].extend([x for x in taxon if x != '']) #add the taxonomy to the global data structure
 
 		elif 'REFERENCE' in line[0:12]:
 			#Citations for all articles containing data reported in this entry. Includes seven subkeywords and may repeat. Mandatory keyword/one or more records.
@@ -549,6 +550,7 @@ class gbobject(object):
 			index, number = deletionlist[-1]
 			del self.gbfile['features'][index]['qualifiers'][number]
 			del deletionlist[-1]
+		self.reset_file_versions() # this is part of loading the file, not something to undo
 
 
 
@@ -562,18 +564,20 @@ class gbobject(object):
 
 	def add_file_version(self):
 		'''
-		Add another file version to the version list.
-		This should be added after the current version and should delete all later versions if there are any.
+		Store the current state of the file as a new version, directly after the current version.
+		Any later versions (that could have been redone) are deleted.
 		'''
 		index = self.get_file_version_index()
-		if len(self.file_versions) == 0: #the first version of the file
-			self.file_versions += (copy.deepcopy(self.gbfile),)
-		elif index == len(self.file_versions)-1: #if the current version is the last one
-			self.file_versions += (copy.deepcopy(self.gbfile),)
-			self.set_file_version_index(index+1)
-		else:
-			self.file_versions = self.file_versions[0:index]+(copy.deepcopy(self.gbfile),)
-			self.set_file_version_index(index+1)
+		self.file_versions = self.file_versions[:index+1] + [copy.deepcopy(self.gbfile)]
+		self.set_file_version_index(len(self.file_versions)-1)
+
+	def reset_file_versions(self):
+		'''
+		Forget all versions and store the current state of the file as the first one,
+		so that the first edit can be undone as well.
+		'''
+		self.file_versions = [copy.deepcopy(self.gbfile)]
+		self.set_file_version_index(0)
 
 	def get_file_version_index(self):
 		'''
@@ -588,27 +592,29 @@ class gbobject(object):
 
 	def Undo(self):
 		'''Function for undoing user action (such as deleting or adding dna or features).
-			Function intended for use by the user.'''
+			Function intended for use by the user.
+			Returns True if something was undone and False if there is nothing to undo.'''
 		if self.get_file_version_index() <= 0:
-			print("Can't undo there are no previous versions")
-		else:
-			old_index = self.get_file_version_index()
-			new_index = old_index-1
-			self.set_file_version_index(new_index)
-			self.gbfile = self.get_file_version()
-			print(('index after undo', self.get_file_version_index()))
+			return False
+		self._restore_file_version(self.get_file_version_index()-1)
+		return True
 
 	def Redo(self):
 		'''Function for redoing user action (such as deleting or adding dna or features).
-			Function intended for use by the user.'''
+			Function intended for use by the user.
+			Returns True if something was redone and False if there is nothing to redo.'''
 		if self.get_file_version_index() >= len(self.file_versions)-1:
-			print("Can't redo, there are no later versions")
-		else:
-			old_index = self.get_file_version_index()
-			new_index = old_index+1
-			self.set_file_version_index(new_index)
-			self.gbfile = self.get_file_version()
-			print(('index after redo', self.get_file_version_index()))
+			return False
+		self._restore_file_version(self.get_file_version_index()+1)
+		return True
+
+	def _restore_file_version(self, index):
+		'''Make the stored version with this index the current state of the file.'''
+		filepath = self.gbfile['filepath'] # where the file is saved is not part of the undo history
+		self.set_file_version_index(index)
+		self.gbfile = copy.deepcopy(self.get_file_version()) # a copy, so that later edits do not change the stored version
+		self.gbfile['filepath'] = filepath
+		self.restrictionEnzymes.reloadEnzymes(self) # the dna may be different
 
 
 ####################################################################
@@ -2049,11 +2055,7 @@ indeces >-1 are feature indeces'''
 			line = '  ORGANISM' + ' '*(12-len('  ORGANISM')) + self.gbfile['organism'][0]
 			output.append(line)
 			line = ' '*12
-			for entry in self.gbfile['organism'][1:]:
-				if entry != self.gbfile['organism'][-1]:
-					line += entry + '; '
-				else:
-					line += entry + '.'
+			line += '; '.join(self.gbfile['organism'][1:]) + '.'
 			line = self.check_line(line, 'header')
 			output.append(line)
 		

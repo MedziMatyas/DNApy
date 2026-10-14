@@ -69,16 +69,16 @@ The non-GUI core (`dna`, `genbank`, `protein`, `enzyme`) looks closest to workin
 - Python 3 fixes: `None` comparisons in `mixed_base_codons.py`, bytes for the wx clipboard in `genbank.py`, removed `string.*` functions, tab/space mixes in three GUI files, a stray parenthesis in `src/other/seqfiles.py`.
 - Also fixed: a typo (`ncut52`) in `enzyme.py` that crashed for enzymes with two cuts.
 - The enzyme list (`resources/emboss_e.txt`) is located relative to the package, not the working directory.
-- Unit tests in `tests/` cover the core (154 tests including the GUI smoke tests), using the fixture `tests/data/test_plasmid.gb`. Run them with:
+- Unit tests in `tests/` cover the core (170 tests including the GUI smoke tests), using the fixture `tests/data/test_plasmid.gb`. Run them with:
 
 ```
 python -m unittest discover -s tests -t .
 ```
 
-### Known bugs recorded as expected failures
-- Undo: the loaded file is never stored as a version, so the first edit cannot be undone.
-- Restriction sites in the first 100 bp are reported twice.
-- Taxonomy loses its spaces when parsing ("other sequences" becomes "othersequences").
+### Bugs fixed (they had been recorded as expected failures)
+- **Undo/redo:** the loaded file was never stored as a version, so the first edit could not be undone. Undo and redo also handed out the stored version itself, so later edits changed the history, and an edit after an undo broke the version list. Now the loaded (or new, empty) file is the first version, undo and redo work on copies, an edit after an undo discards what could have been redone, the restriction sites are recalculated and the file path is kept. `Undo()` and `Redo()` return whether anything happened, and the debug prints are gone.
+- **Restriction sites** in the first 100 bp of a circular sequence were reported twice (once more in the copy of the start that is added to find sites over the origin). While there, positions were fixed for a site that ends at the last base (it was reported as ending at 0) or starts at the last base.
+- **Taxonomy** lost its spaces when a file was read ("other sequences" became "othersequences") and so was written back wrong. Names are now kept with single spaces, and wrapped lines work.
 
 ### GUI: ported, launches and draws
 Start it from the repository root with `python -m src.gui.main`.
@@ -114,10 +114,9 @@ Settings are read from TOML files by `src/settings.py` (no code is executed, no 
 
 1. **Revisit the text rendering and the drawing stack.** Pango was dropped for now (see above) and replaced by a simple monospaced grid on Cairo's basic text API. That is enough for DNA, but it has no advanced shaping or kerning, and the labels (feature names, enzyme names, ticks) still use Cairo's basic text API with Arial. Decide later whether to keep Cairo, move to `wx.GraphicsContext` (drops pycairo, but the plasmid drawing code is written against the Cairo API), or use another toolkit. Also look at the font choice (Consolas, then DejaVu Sans Mono, Courier New, ...) and at high-DPI scaling.
 2. **Try the GUI by hand and fix what breaks:** mouse selection and clicking on features, keyboard input, menus, dialogs (open/save, feature edit, enzyme selection and digestion), undo/redo. Replace the deprecated `wx.EVT_TOOL(...)`/`wx.EVT_*` calls with `Bind`, and check wx calls for float vs int arguments. `open_file` splits the file name on `.` and fails for names with several dots.
-3. **Fix the known bugs** listed above (undo, duplicate restriction sites, taxonomy spaces) and flip their tests from expected failure to normal tests.
-4. **Remove the app-wide mutable state** stored on the `genbank` module (`genbank.gb`, `dna_selection`, `feature_selection`, `cursor_position`, `search_hits`). It is initialized in `main.py` and makes the GUI hard to test.
-5. **Extend the GUI tests**: smoke tests exist for the editor, plasmid view, feature list and main window. Missing: the other dialogs and panels, and simulated mouse and keyboard input.
-6. **Packaging and docs:** fix `setup.py` (missing `HISTORY.md`, wrong entry point), add a requirements file, and update the README (it still describes Python 2.7 and `python main.py`).
-7. **Large sequences in the editor.** The editor keeps one bitmap as tall as the whole sequence (about 95 pixels per line), so memory use and bitmap size limits will be a problem for sequences of tens or hundreds of kilobases. Draw only the visible part instead. The cursor also does not scroll into view yet when it moves with the keyboard.
-8. **Clean up** `src/other/` (unused, partly broken legacy code), the unused `src/defaults/english` and `errors` files, the leftover debug `print` calls (for example in `peptide_localizer.py` and `Undo`), and the `/home/martin/...` default path in `src/defaults/settings`.
-9. Longer term: the unimplemented features from the README (ab1 trace analysis, codon optimization, NCBI fetch, primer design, PCR simulation, alignment).
+3. **Remove the app-wide mutable state** stored on the `genbank` module (`genbank.gb`, `dna_selection`, `feature_selection`, `cursor_position`, `search_hits`). It is initialized in `main.py` and makes the GUI hard to test.
+4. **Extend the GUI tests**: smoke tests exist for the editor, plasmid view, feature list and main window. Missing: the other dialogs and panels, and simulated mouse and keyboard input.
+5. **Packaging and docs:** fix `setup.py` (missing `HISTORY.md`, wrong entry point), add a requirements file, and update the README (it still describes Python 2.7 and `python main.py`).
+6. **Large sequences in the editor.** The editor keeps one bitmap as tall as the whole sequence (about 95 pixels per line), so memory use and bitmap size limits will be a problem for sequences of tens or hundreds of kilobases. Draw only the visible part instead. The cursor also does not scroll into view yet when it moves with the keyboard.
+7. **Clean up** `src/other/` (unused, partly broken legacy code), the unused `src/defaults/english` and `errors` files, the leftover debug `print` calls (for example in `peptide_localizer.py` and `Undo`), and the `/home/martin/...` default path in `src/defaults/settings`.
+8. Longer term: the unimplemented features from the README (ab1 trace analysis, codon optimization, NCBI fetch, primer design, PCR simulation, alignment).

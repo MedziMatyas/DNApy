@@ -246,10 +246,14 @@ class initRestriction(object):
 				for match in iterator:
 					newEnz = []
 					modulo = len(dnaseq)		# all positions are modulo len(dnaseq)
+					if match.start() >= modulo:
+						# This match starts in the copy of the beginning that was added at the end. The same site
+						# was already found at its real position at the start of the dna.
+						continue
 					# add offset to match position
 					name 		= str(enzyme)
-					start		= (match.start()+1) % modulo
-					end 		= match.end() % modulo
+					start		= match.start() + 1		# first base of the site (1 is the first base of the dna)
+					end 		= (match.end() - 1) % modulo + 1	# last base, a site that goes over the end continues at the start
 					cut51		= (match.start() + offset1) % modulo	# cuts after this base
 
 					if offset2 == 0: # if it just cuts once, we'll say None to the second cut

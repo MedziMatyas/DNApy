@@ -49,10 +49,40 @@ class TestRestrictionEnzymes(unittest.TestCase):
     def test_enzyme_without_site_has_no_sites(self):
         self.assertEqual(self.enzymes['EcoRV'].restrictionSites, [])
 
-    @unittest.expectedFailure
     def test_each_site_is_reported_once(self):
-        # known issue: sites in the first 100 bp are found again in the circular helper sequence
+        # sites in the first 100 bp used to be found again in the copy of the start that is added for circular dna
         self.assertEqual(len(self.enzymes['BamHI'].restrictionSites), 1)
+        self.assertEqual(len(self.enzymes['EcoRI'].restrictionSites), 1)
+
+    def sites_in(self, sequence, topology, name):
+        gb = genbank.gbobject()
+        gb.gbfile['locus']['topology'] = topology
+        gb.gbfile['dna'] = sequence
+        return [site[:3] for site in enzyme.initRestriction(gb).enzymeObj[name].restrictionSites]
+
+    def test_site_at_the_very_end_of_the_sequence(self):
+        sequence = 'A' * 20 + 'GGATCC'
+        self.assertEqual(self.sites_in(sequence, 'linear', 'BamHI'), [['BamHI', 21, 26]])
+        self.assertEqual(self.sites_in(sequence, 'circular', 'BamHI'), [['BamHI', 21, 26]])
+
+    def test_site_at_the_very_start_of_the_sequence(self):
+        sequence = 'GGATCC' + 'A' * 20
+        self.assertEqual(self.sites_in(sequence, 'linear', 'BamHI'), [['BamHI', 1, 6]])
+        self.assertEqual(self.sites_in(sequence, 'circular', 'BamHI'), [['BamHI', 1, 6]])
+
+    def test_site_that_goes_over_the_origin_of_a_circular_sequence(self):
+        sequence = 'ATCC' + 'A' * 20 + 'GG'  # GGATCC when the end is joined to the start
+        self.assertEqual(self.sites_in(sequence, 'circular', 'BamHI'), [['BamHI', 25, 4]])
+        self.assertEqual(self.sites_in(sequence, 'linear', 'BamHI'), [])
+
+    def test_site_beyond_the_first_100_bp_is_reported_once(self):
+        sequence = 'A' * 150 + 'GGATCC' + 'A' * 150
+        self.assertEqual(self.sites_in(sequence, 'circular', 'BamHI'), [['BamHI', 151, 156]])
+
+    def test_several_sites_are_each_reported_once(self):
+        sequence = 'GGATCC' + 'A' * 30 + 'GGATCC' + 'A' * 30
+        self.assertEqual(self.sites_in(sequence, 'circular', 'BamHI'),
+                         [['BamHI', 1, 6], ['BamHI', 37, 42]])
 
     def test_enzymes_with_two_cuts_do_not_crash(self):
         # regression test: a typo left the second cut position unassigned
