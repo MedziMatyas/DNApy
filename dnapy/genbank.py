@@ -210,6 +210,7 @@ class gbobject(object):
 
 		#for undo/redo
 		self.file_versions = [] #stores version of the file
+		self.file_version_cursors = [] #for each version: (cursor before the edit, cursor after the edit)
 		self.file_version_index = 0 #stores at which index the current file is					
 		
 		if filepath == None:
@@ -572,6 +573,7 @@ class gbobject(object):
 		'''
 		index = self.get_file_version_index()
 		self.file_versions = self.file_versions[:index+1] + [copy.deepcopy(self.gbfile)]
+		self.file_version_cursors = self.file_version_cursors[:index+1] + [(None, None)]
 		self.set_file_version_index(len(self.file_versions)-1)
 
 	def reset_file_versions(self):
@@ -580,7 +582,21 @@ class gbobject(object):
 		so that the first edit can be undone as well.
 		'''
 		self.file_versions = [copy.deepcopy(self.gbfile)]
+		self.file_version_cursors = [(None, None)]
 		self.set_file_version_index(0)
+
+	def set_version_cursors(self, before, after):
+		'''
+		Store where the cursor was before and after the edit that made the current version.
+		The file does not have a cursor of its own, the editor tells it. Undo uses the position before the edit and
+		redo the one after it (see EditorState.undo and redo).
+		'''
+		self.file_version_cursors[self.get_file_version_index()] = (before, after)
+
+	def get_version_cursors(self, index):
+		'''The (before, after) cursor positions that were stored for the edit that made version `index`.
+			Both are None if the editor did not say where the cursor was.'''
+		return self.file_version_cursors[index]
 
 	def get_file_version_index(self):
 		'''
@@ -657,11 +673,14 @@ class gbobject(object):
 		"""This method extracts the first qualifier and returns that as a label.
 			Index should be an integer."""
 		assert type(index) == int, "Error, index must be an integer."
-		try:
-			return self.gbfile['features'][index]['qualifiers'][0].split('=')[1]
-		except:
+		features = self.gbfile['features']
+		if features is None or not 0 <= index < len(features):
 			log.error('This is not a valid index')
 			return False
+		qualifiers = features[index]['qualifiers']
+		if len(qualifiers) == 0 or '=' not in qualifiers[0]: # a feature without a label
+			return False
+		return qualifiers[0].split('=', 1)[1]
 
 
 	def get_feature_type(self, index):
@@ -1338,7 +1357,7 @@ indeces >-1 are feature indeces'''
 
 		#fix the set_dna_selection functions here
 		assert type(searchstring) == str or type(searchstring) == str or type(searchstring) == int, 'Error, search takes a string of DNA or a string of numbers as input.'
-		assert type(searchframe) == int and -1<=searchframe<len(self.get_all_features()), 'Error, %s is not a valid argument for searchframe.' % str(searchframe)
+		assert type(searchframe) == int and -1<=searchframe<len(self.get_all_features() or []), 'Error, %s is not a valid argument for searchframe.' % str(searchframe)
 		assert type(searchRC) == bool, 'Error, searchRC must be True or False'
 		#empty search string
 		if searchstring=='':
@@ -1434,7 +1453,7 @@ indeces >-1 are feature indeces'''
 	def FindAminoAcid(self, searchstring, searchframe, searchRC=False):
 		'''Method for finding a certain protein sequence, or position, in the file. Degenerate codons are supported'''
 		assert type(searchstring) == str or type(searchstring) == str or type(searchstring) == int, 'Error, search takes a string of DNA or a string of numbers as input.'
-		assert type(searchframe) == int and -1<=searchframe<len(self.get_all_features()), 'Error, %s is not a valid argument for searchframe.' % str(searchframe)
+		assert type(searchframe) == int and -1<=searchframe<len(self.get_all_features() or []), 'Error, %s is not a valid argument for searchframe.' % str(searchframe)
 		assert type(searchRC) == bool, 'Error, searchRC must be True or False'
 
 
@@ -1520,11 +1539,13 @@ indeces >-1 are feature indeces'''
 		else:
 			search_hits = []
 			hits = []
-			features = self.get_all_features()
+			features = self.get_all_features() or [] # a file can have no features at all
 			for i in range(len(features)):
 				qualifiers = self.get_qualifiers(i)
 				for qualifier in qualifiers:
-					if searchstring in qualifier.split('=')[1] and (features[i] in hits) == False:
+					if '=' not in qualifier: # a qualifier without a value, such as /pseudo
+						continue
+					if searchstring in qualifier.split('=', 1)[1] and (features[i] in hits) == False:
 						hits.append(features[i])
 
 		if len(hits) == 0:
@@ -1533,7 +1554,7 @@ indeces >-1 are feature indeces'''
 		else:
 			for feature in hits:
 				start, finish = self.GetFirstLastLocation(feature)
-				search_hits.append((start-1, finish))
+				search_hits.append((start, finish)) # 1-based, like the other searches
 		search_hits = sorted(search_hits)
 		return search_hits	
 

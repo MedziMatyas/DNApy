@@ -11,7 +11,7 @@ DNApy was started by Martin Engqvist ([mengqvist/DNApy](https://github.com/mengq
 ## Status
 
 - **It runs on Python 3 and is usable for viewing and editing GenBank files.** It has been developed and tried on Windows 11 with Python 3.14, wxPython 4.3.1 and pycairo 1.29. Linux and macOS have not been tried yet (the original ran on Linux).
-- **Tested automatically** (185 tests): the sequence and GenBank code, restriction enzymes, codon design, settings, and the GUI with synthetic mouse, keyboard and menu events. The GUI has also been tried by hand, but not every dialog and function.
+- **Tested automatically** (226 tests): the sequence and GenBank code, restriction enzymes, codon design, settings, and the GUI with synthetic mouse, keyboard and menu events. The GUI has also been tried by hand, but not every dialog and function.
 - **Not finished**: see [Known limitations](#known-limitations) and the TODO list in [OVERVIEW.md](OVERVIEW.md).
 
 This is software under development. Keep a copy of your files; it reads and writes GenBank files, and the writer does not preserve everything that other programs put into a file.
@@ -111,7 +111,7 @@ The GUI tests need wxPython and pycairo and open (and close) windows; without th
 
 - Developed on Windows only so far. It can be installed with pip from the repository, but is not published on PyPI and there is no stand-alone installer.
 - The text is drawn with Cairo's basic text functions on a monospaced grid. That works for DNA, but labels have no advanced text layout, and high resolution displays have not been looked at.
-- The sequence view draws the whole sequence as one image, which is fine for plasmids of a few kilobases but not for very long sequences. The cursor does not scroll into view when moved with the keyboard.
+- The sequence view draws the whole sequence as one image, which is fine for plasmids of a few kilobases but not for very long sequences.
 - On the plasmid map, long labels are cut off at the edge of the panel.
 - File > Export plasmid map does not work yet (the SVG export was never finished).
 - GenBank files are read and written by DNApy's own parser. Unusual files from other programs may not load, and a saved file may differ from the original (for example in the header and in how qualifiers wrap).

@@ -102,7 +102,6 @@ class TextEdit(DNApyBaseDrawingClass):
 		self.letterSpacing	= 1500 / 1024.0 # extra pixels between characters
 		
 		# interactive cursor
-		self.PositionPointer 		= 1
 		self.PositionPointerEnd 	= False
 		
 		# initial minimal height of the editor 
@@ -123,6 +122,7 @@ class TextEdit(DNApyBaseDrawingClass):
 		
 		
 		self.updating = False # True while the drawing is updated
+		self.shownPosition = None # selection and cursor at the last drawing, to scroll to them when they move
 
 		# context for testing which path is under the mouse
 		self.hitContext = cairo.Context(cairo.ImageSurface(cairo.FORMAT_ARGB32, 1, 1))
@@ -259,7 +259,52 @@ class TextEdit(DNApyBaseDrawingClass):
 		self.Refresh(False) # no need to erase the background, the buffer covers everything
 		self.Update()
 
+		self.follow_selection_and_cursor()
+
 		return None
+
+	def follow_selection_and_cursor(self):
+		'''
+		Scroll so that a selection or cursor that moved (a search hit, a clicked feature, undo, typing, ...) is in view.
+		Nothing happens if what changed is already visible, and the first drawing does not scroll.
+		'''
+		start, finish, zero = self.get_selection()
+		where = (start, finish, self.PositionPointer)
+		previous, self.shownPosition = self.shownPosition, where
+		if previous is None or previous == where:
+			return
+		if finish != -1 and (start, finish) != previous[:2]: # the selection changed
+			self.scroll_to_bases(min(start, finish), max(start, finish))
+		elif finish == -1 and self.PositionPointer is not None:
+			self.scroll_to_bases(self.PositionPointer, self.PositionPointer)
+
+	def scroll_to_bases(self, first, last):
+		'''
+		Scroll the window as little as needed to show the lines with the bases first to last (1-based).
+		If they do not all fit in the window, the line with the first base is shown.
+		'''
+		if self.dna == '':
+			return
+		first = max(1, min(first, len(self.dna)))
+		last = max(first, min(last, len(self.dna)))
+		layout = self.senseLayout
+		# a line is seen with the features and the position number above it (the space above the first line is sY)
+		# and the features of the other strand below it
+		top = layout.index_to_pos(first-1)[1]
+		bottom = self.sY + layout.index_to_pos(last-1)[1] + 2*layout.text_height + self.lineGap + 40
+		unit = self.parent.GetScrollPixelsPerUnit()[1]
+		view_height = self.parent.GetClientSize()[1]
+		view_top = self.parent.GetViewStart()[1] * unit
+		if bottom - top > view_height: # it does not fit, show where it starts
+			bottom = top + view_height
+		if top < view_top: # scroll up, not further than the top of what has to be seen
+			units = int(max(top, 0) // unit)
+		elif bottom > view_top + view_height: # scroll down, at least until the bottom of what has to be seen is visible
+			units = int(-(-(bottom - view_height) // unit))
+		else:
+			return # already in view
+		self.parent.Scroll(-1, units) # the position is counted in scroll units
+
 	
 	
 		
@@ -709,6 +754,20 @@ class TextEdit(DNApyBaseDrawingClass):
 
 		
 	
+	@property
+	def PositionPointer(self):
+		'''The position of the cursor. It is kept in the shared state, so that the plasmid view, the status bar,
+		undo and redo see the same cursor.'''
+		return self.state.cursor_position
+
+	@PositionPointer.setter
+	def PositionPointer(self, position):
+		self.state.cursor_position = position
+
+	def remember_edit(self, cursor_before):
+		'''Store where the cursor was before the edit that was just made, so that undo and redo can bring it back.'''
+		self.state.record_edit(cursor_before)
+
 	def OnLeftDown(self, event):
 		# remove selection:
 		self.set_dna_selection()
@@ -997,24 +1056,27 @@ class TextEdit(DNApyBaseDrawingClass):
 			key = evt.GetKeyCode()
 
 		index = self.PositionPointer
+		cursor_before = index # undo of an edit puts the cursor back here
 		
 		shift = evt.ShiftDown() # is shift down?
 		
 		if key in [97, 65, 116, 84, 99, 67, 103, 71]: # [a, A, t, T, c, C, g, G']
 			start, finish, null = self.get_selection()
-			if finish != -1: # if a selection, delete it, then paste
-				self.state.gb.Delete(start+1, finish, visible=False)
+			if finish != -1: # if a selection, delete it, then paste in its place
+				self.state.gb.Delete(start, finish, visible=False)
 				self.PositionPointer = start
+				index = start
 			if shift == True:
 				self.state.gb.Paste(index, chr(key).upper())
 			elif shift == False:
 				self.state.gb.Paste(index, chr(key).lower())
 			
 			# move pointer
-			self.PositionPointer = self.PositionPointer + 1
+			self.PositionPointer = index + 1
 			
 			if finish != -1:
 				self.set_dna_selection()
+			self.remember_edit(cursor_before)
 			self.update_ownUI()
 			self.update_globalUI()
 			
@@ -1025,15 +1087,17 @@ class TextEdit(DNApyBaseDrawingClass):
 		elif key == 8: #backspace
 			start, finish, null = self.get_selection()
 			if finish != -1: # if a selection, delete it
-				self.state.gb.Delete(start+1, finish)
+				self.state.gb.Delete(start, finish)
 				self.set_dna_selection() # remove selection
 				self.PositionPointer = start
+				self.remember_edit(cursor_before)
 				self.update_ownUI()
 				self.update_globalUI()
 
-			else:
+			elif index > 1: # there is a base in front of the cursor
 				self.state.gb.Delete(index-1, index-1)
 				self.PositionPointer = self.PositionPointer - 1 # set pointer back
+				self.remember_edit(cursor_before)
 				self.update_ownUI()
 				self.update_globalUI()
 
@@ -1044,9 +1108,12 @@ class TextEdit(DNApyBaseDrawingClass):
 			if finish != -1: # if a selection, delete it
 				self.state.gb.Delete(start, finish)
 				self.PositionPointer = start
-			else:
+			elif index <= len(self.state.gb.GetDNA() or ''): # there is a base after the cursor
 				self.state.gb.Delete(index, index)
+			else:
+				return
 			self.set_dna_selection() # remove selection
+			self.remember_edit(cursor_before)
 			self.update_ownUI()
 			self.update_globalUI()
 
@@ -1205,7 +1272,10 @@ class TextEdit(DNApyBaseDrawingClass):
 		if finish == -1:
 			raise ValueError('Cannot delete an empty selection')
 		else:
+			cursor_before = self.PositionPointer
 			self.state.gb.Delete(start, finish)
+			self.set_cursor_position(start)
+			self.remember_edit(cursor_before)
 			self.update_ownUI()
 			self.update_globalUI()
 			self.set_dna_selection()
@@ -1216,8 +1286,10 @@ class TextEdit(DNApyBaseDrawingClass):
 		if finish == -1:
 			raise ValueError('Cannot cut an empty selection')
 		else:
+			cursor_before = self.PositionPointer
 			self.state.gb.Cut(start, finish)
 			self.set_cursor_position(start)
+			self.remember_edit(cursor_before)
 			self.update_ownUI()
 			self.update_globalUI()
 			self.set_dna_selection()
@@ -1228,7 +1300,10 @@ class TextEdit(DNApyBaseDrawingClass):
 		if finish == -1:
 			raise ValueError('Cannot cut an empty selection')
 		else:
+			cursor_before = self.PositionPointer
 			self.state.gb.CutRC(start, finish)
+			self.set_cursor_position(start)
+			self.remember_edit(cursor_before)
 			self.update_ownUI()
 			self.update_globalUI()
 			self.set_dna_selection()
@@ -1236,12 +1311,14 @@ class TextEdit(DNApyBaseDrawingClass):
 	def paste(self):
 		'''Paste DNA and any features present on that DNA'''
 		start, finish, zero = self.get_selection()
+		cursor_before = self.PositionPointer
 		if finish == -1:
 			pass
 		else: #If a selection, remove sequence, reposition pointer
 			self.state.gb.Delete(start, finish, visible=False)
 			self.set_cursor_position(start)
 		self.state.gb.RichPaste(self.state.cursor_position)
+		self.remember_edit(cursor_before)
 		self.update_ownUI()
 		self.update_globalUI()
 		self.set_dna_selection() # reset selection
@@ -1249,12 +1326,14 @@ class TextEdit(DNApyBaseDrawingClass):
 	def paste_reverse_complement(self):
 		'''Paste reverse complement of DNA and any features present on that DNA'''
 		start, finish, zero = self.get_selection()
+		cursor_before = self.PositionPointer
 		if finish == -1:
 			pass
 		else: #If a selection, remove sequence, reposition pointer
 			self.state.gb.Delete(start, finish, visible=False)
 			self.set_cursor_position(start)
 		self.state.gb.PasteRC(self.state.cursor_position)
+		self.remember_edit(cursor_before)
 		self.update_ownUI()
 		self.update_globalUI()
 		self.set_dna_selection() # reset selection

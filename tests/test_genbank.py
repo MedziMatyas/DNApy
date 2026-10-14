@@ -199,7 +199,7 @@ class TestSearch(unittest.TestCase):
         self.assertEqual(quiet(self.gb.FindAminoAcid, 2, 0), [(4, 6)])
 
     def test_find_feature_by_label(self):
-        self.assertEqual(self.gb.FindFeature('test_cds'), [(0, 33)])
+        self.assertEqual(self.gb.FindFeature('test_cds'), [(1, 33)])
 
 
 class TestMutation(unittest.TestCase):
@@ -230,6 +230,37 @@ class TestMutation(unittest.TestCase):
     def test_codon_must_encode_the_requested_amino_acid(self):
         with self.assertRaises(AssertionError):
             quiet(self.gb.mutate, 'A', 0, 'A2G(AAA)')
+
+
+class TestSearchInOddFiles(unittest.TestCase):
+    def test_search_in_a_file_without_features(self):
+        gb = genbank.gbobject()
+        quiet(gb.Paste, 1, 'AAGGATCCTTGGATCC')
+        self.assertIsNone(gb.get_all_features())
+        self.assertEqual(gb.FindNucleotide('GGATCC'), [(3, 8), (11, 16)])
+        self.assertEqual(quiet(gb.FindAminoAcid, 'G', -1), [])
+        self.assertEqual(gb.FindFeature('anything'), [])
+
+    def test_feature_search_gives_one_based_positions(self):
+        gb = load()
+        self.assertEqual(gb.FindFeature('test_promoter'), [(40, 55)])
+        self.assertEqual(gb.FindFeature('test_'), [(1, 33), (40, 55)])  # sorted by position
+
+    def test_features_with_a_qualifier_that_has_no_value_can_be_searched(self):
+        gb = load()
+        gb.add_qualifier(gb.get_feature(0), '/pseudo')
+        self.assertEqual(gb.FindFeature('test_cds'), [(1, 33)])
+
+    def test_label_of_a_feature_without_qualifiers(self):
+        gb = load()
+        quiet(gb.add_feature, 'misc_feature', [], ['60..70'], False, False, False)
+        self.assertFalse(gb.get_feature_label(2))
+        self.assertEqual(gb.get_feature_label(0), '"test_cds"')
+
+    def test_label_that_contains_an_equals_sign(self):
+        gb = load()
+        gb.get_feature(0)['qualifiers'].insert(0, '/note="a=b"')
+        self.assertEqual(gb.get_feature_label(0), '"a=b"')
 
 
 class TestLogging(unittest.TestCase):

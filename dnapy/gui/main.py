@@ -193,6 +193,12 @@ class DNApy(wx.Frame):
 
 		self.Bind(wx.EVT_CLOSE, self.OnCloseWindow)
 
+		# the Undo and Redo buttons and menu items are enabled when there is something to undo or redo
+		for item_id in (513, 9):
+			self.Bind(wx.EVT_UPDATE_UI, self.update_undo_ui, id=item_id)
+		for item_id in (514, 10):
+			self.Bind(wx.EVT_UPDATE_UI, self.update_redo_ui, id=item_id)
+
 		self.do_layout()
 		self.Centre()
 
@@ -426,6 +432,7 @@ class DNApy(wx.Frame):
 			self.SetStatusText('Selection: %d to %d, %d bp %s' % (selection[0], selection[1], length,AA), 0) #text in first field
 		else:
 			self.SetStatusText('Position: %s bp' % (Position), 0) #text in first field
+		evt.Skip() # this handler sees all update events of the window, pass them on
 		
 
 
@@ -672,12 +679,12 @@ Put Table here
 #####################################
 
 	def Undo(self, evt):
-		self.state.gb.Undo()
+		self.state.undo()
 		self.update_globalUI()
 
 
 	def Redo(self, evt):
-		self.state.gb.Redo()
+		self.state.redo()
 		self.update_globalUI()
 
 ######################################
@@ -732,20 +739,13 @@ Put Table here
 
 
 
-	def update_ownUI(self):
-		#and now actually update the UI
-		if self.state.gb.get_file_version_index() <= 0: #if there are no undos available
-			self.frame_1_toolbar.EnableTool(513, False)
-		else:
-			self.frame_1_toolbar.EnableTool(513, True)
+	def update_undo_ui(self, evt):
+		'''Called by wx to find out if the Undo button and menu item can be used: only if there is something to undo'''
+		evt.Enable(self.state.gb.get_file_version_index() > 0)
 
-		if self.state.gb.get_file_version_index() >= len(self.state.gb.file_versions)-1: #if there are no redos available
-			self.frame_1_toolbar.EnableTool(514, False)
-		else:
-			self.frame_1_toolbar.EnableTool(514, True)
-
-
-		#update whatever tab is currently active
+	def update_redo_ui(self, evt):
+		'''Called by wx to find out if the Redo button and menu item can be used: only if there is something to redo'''
+		evt.Enable(self.state.gb.get_file_version_index() < len(self.state.gb.file_versions)-1)
 
 
 	def update_globalUI(self):
@@ -844,10 +844,10 @@ Put Table here
 #   	self.frame_1_toolbar.AddTool(510, "Print current window", wx.Bitmap(settings.get().icon('print.png'), wx.BITMAP_TYPE_ANY), wx.NullBitmap, wx.ITEM_NORMAL, 'Print Current Window', 'Print Current Window')
 #  		self.Bind(wx.EVT_TOOL, self.print_setup, id=510)
 
-		self.frame_1_toolbar.AddCheckTool(511, 'Find', wx.Bitmap(settings.get().icon('search.png'), wx.BITMAP_TYPE_ANY), wx.Bitmap(settings.get().icon('search.png'), wx.BITMAP_TYPE_ANY), 'Find', 'Find')
+		self.frame_1_toolbar.AddCheckTool(511, 'Find', wx.Bitmap(settings.get().icon('search.png'), wx.BITMAP_TYPE_ANY), wx.NullBitmap, 'Find', 'Find') # the second bitmap is the one for when the tool is disabled; none means wx makes a grey copy of the icon
 		self.Bind(wx.EVT_TOOL, self.toggle_searchandmutate_toolbar, id=511)
 
-		self.frame_1_toolbar.AddCheckTool(512, 'Mutate', wx.Bitmap(settings.get().icon('mutate.png'), wx.BITMAP_TYPE_ANY), wx.Bitmap(settings.get().icon('search.png'), wx.BITMAP_TYPE_ANY), 'Mutate', 'Mutate')
+		self.frame_1_toolbar.AddCheckTool(512, 'Mutate', wx.Bitmap(settings.get().icon('mutate.png'), wx.BITMAP_TYPE_ANY), wx.NullBitmap, 'Mutate', 'Mutate')
 		self.Bind(wx.EVT_TOOL, self.toggle_searchandmutate_toolbar, id=512)
 
 
@@ -872,77 +872,68 @@ Put Table here
 		self.frame_1_toolbar.EnableTool(514, 0) #Redo button
 
 	def __generate_searchandmutate_toolbar(self):
-		##### Toolbar 2 #####
+		'''
+		The bar with the controls for finding and mutating, it is hidden until the Find or Mutate tool is chosen.
+		It is a panel with controls and not a wx.ToolBar: on Windows a toolbar that holds controls hangs when its
+		tools are cleared to be built again, so the controls are made once and only shown, hidden and filled.
+		'''
 		self.nucleotideoraminoacidSelection = 0
-
-		self.frame_2_toolbar = wx.ToolBar(self, wx.ID_ANY, style=wx.TB_HORIZONTAL|wx.TB_FLAT|wx.TB_DOCKABLE)
-
 		self.findormutSelection = 'Find'
-		self.add_search_tools(self.findormutSelection)
 
-		self.frame_2_toolbar.Realize()
-		self.frame_2_toolbar.Hide()
+		bar = wx.Panel(self)
+		self.frame_2_toolbar = bar # the main window lays this out below the other toolbar
 
+		self.nucleotideoraminoacid = wx.ComboBox(bar, id=601, size=(120, 28), choices=[], style=wx.CB_READONLY)
+		self.searchinput = wx.TextCtrl(bar, id=wx.ID_ANY, size=(250, 28), value="")
+		self.inbox = wx.TextCtrl(bar, id=wx.ID_ANY, size=(25, 28), value="in")
+		self.inbox.SetEditable(False)
+		self.featurebox = wx.ComboBox(bar, id=603, size=(120, 28), choices=['Molecule'], style=wx.CB_READONLY)
 
+		def button(button_id, icon, tip, handler):
+			b = wx.BitmapButton(bar, button_id, wx.Bitmap(settings.get().icon(icon), wx.BITMAP_TYPE_ANY))
+			b.SetToolTip(tip)
+			b.Bind(wx.EVT_BUTTON, handler)
+			return b
+		self.find_previous_button = button(507, 'up.png', 'Find previous', self.find_previous)
+		self.find_next_button = button(509, 'down.png', 'Find next', self.find_next)
+		self.find_button = button(604, 'search.png', 'Find', self.find)
+		self.mutate_button = button(605, 'up.png', 'Mutate', self.mutate)
 
-	def add_search_tools(self, typeof):
-		'''
-		Adds tools to the find/mutate toolbar.
-		A string "find" or "mutate" is passed to determine which toolbar to build
-		'''
-		featurelist = ['Molecule']
-		try:
-			#make a list of all feature names
-			features = self.state.gb.get_all_features()
-			for entry in features:
-				featurelist.append(entry['qualifiers'][0].split('=')[1])
-		except:
-			pass
+		sizer = wx.BoxSizer(wx.HORIZONTAL)
+		for control in (self.nucleotideoraminoacid, self.searchinput, self.inbox, self.featurebox,
+						self.find_previous_button, self.find_next_button, self.find_button, self.mutate_button):
+			sizer.Add(control, 0, wx.ALIGN_CENTER_VERTICAL | wx.ALL, 2)
+		bar.SetSizer(sizer)
 
-		if typeof == 'Find':
-			self.nucleotideoraminoacid = wx.ComboBox(self.frame_2_toolbar, id=601, size=(120, 28), choices=['Nucleotide', 'Amino Acid', 'Feature'], style=wx.CB_READONLY)
-		elif typeof == 'Mutate':
-			self.nucleotideoraminoacid = wx.ComboBox(self.frame_2_toolbar, id=601, size=(120, 28), choices=['Nucleotide', 'Amino Acid'], style=wx.CB_READONLY)
-		self.frame_2_toolbar.AddControl(self.nucleotideoraminoacid)
-		self.nucleotideoraminoacid.SetSelection(self.nucleotideoraminoacidSelection)
 		self.Bind(wx.EVT_COMBOBOX, self.OnChangeSearchParams, id=601)
+		self.set_search_mode('Find')
+		bar.Hide()
 
-		#'input'
-		self.searchinput=wx.TextCtrl(self.frame_2_toolbar, id=wx.ID_ANY, size=(250, 28), value="")
-		self.frame_2_toolbar.AddControl(self.searchinput)
+	def set_search_mode(self, mode):
+		'''Make the search bar a bar for finding ('Find') or for mutating ('Mutate')'''
+		self.findormutSelection = mode
+		choices = ['Nucleotide', 'Amino Acid', 'Feature'] if mode == 'Find' else ['Nucleotide', 'Amino Acid']
+		self.nucleotideoraminoacid.Set(choices)
+		self.nucleotideoraminoacid.SetSelection(min(self.nucleotideoraminoacidSelection, len(choices)-1))
+		for control in (self.find_previous_button, self.find_next_button, self.find_button):
+			control.Show(mode == 'Find')
+		self.mutate_button.Show(mode == 'Mutate')
+		self.update_search_options()
 
-
-		#'in'
-		nucleotideoraa = self.nucleotideoraminoacid.GetValue()
-		if nucleotideoraa == 'Nucleotide' or nucleotideoraa == 'Amino Acid':
-			self.inbox=wx.TextCtrl(self.frame_2_toolbar, id=wx.ID_ANY, size=(25, 28), value="in")
-			self.frame_2_toolbar.AddControl(self.inbox)
-			self.inbox.SetEditable(False)
-
-		#featurebox
-		if nucleotideoraa == 'Nucleotide' or nucleotideoraa == 'Amino Acid':
-			try:
-				#get features...
-				self.featurebox = wx.ComboBox(self.frame_2_toolbar, id=603, size=(120, 28), choices=['Molecule' and features], style=wx.CB_READONLY)
-			except:
-				self.featurebox = wx.ComboBox(self.frame_2_toolbar, id=603, size=(120, 28), choices=featurelist, style=wx.CB_READONLY)
-			self.frame_2_toolbar.AddControl(self.featurebox)
-			self.featurebox.SetSelection(0)
-
-		#'go'
-		if typeof == 'Find':
-			#find previous
-			self.frame_2_toolbar.AddTool(507, "Find previous", wx.Bitmap(settings.get().icon('up.png'), wx.BITMAP_TYPE_ANY), wx.NullBitmap, wx.ITEM_NORMAL, 'Find previous', 'Find previous')
-			self.Bind(wx.EVT_TOOL, self.find_previous, id=507)
-			#find next
-			self.frame_2_toolbar.AddTool(509, "Find next", wx.Bitmap(settings.get().icon('down.png'), wx.BITMAP_TYPE_ANY), wx.NullBitmap, wx.ITEM_NORMAL, 'Find next', 'Find next')
-			self.Bind(wx.EVT_TOOL, self.find_next, id=509)
-			#search glass
-			self.frame_2_toolbar.AddTool(604, "Find", wx.Bitmap(settings.get().icon('search.png'), wx.BITMAP_TYPE_ANY), wx.NullBitmap, wx.ITEM_NORMAL, 'Find', 'Find')
-			self.Bind(wx.EVT_TOOL, self.find, id=604)
-		elif typeof == 'Mutate':
-			self.frame_2_toolbar.AddTool(604, "Mutate", wx.Bitmap(settings.get().icon('up.png'), wx.BITMAP_TYPE_ANY), wx.NullBitmap, wx.ITEM_NORMAL, 'Mutate', 'Mutate')
-			self.Bind(wx.EVT_TOOL, self.mutate, id=604)
+	def update_search_options(self):
+		'''Show the options that belong to the chosen kind of search, and list the features that can be searched'''
+		in_feature_or_molecule = self.nucleotideoraminoacid.GetValue() in ('Nucleotide', 'Amino Acid')
+		self.inbox.Show(in_feature_or_molecule)
+		self.featurebox.Show(in_feature_or_molecule)
+		if in_feature_or_molecule:
+			names = ['Molecule']
+			for index in range(len(self.state.gb.get_all_features() or [])):
+				label = self.state.gb.get_feature_label(index)
+				names.append(label.strip('"') if label else self.state.gb.get_feature_type(index))
+			selected = max(self.featurebox.GetSelection(), 0)
+			self.featurebox.Set(names)
+			self.featurebox.SetSelection(selected if selected < len(names) else 0)
+		self.frame_2_toolbar.Layout()
 
 	def find(self, evt):
 		'''Find nucleotide in molecule'''
@@ -981,7 +972,7 @@ Put Table here
 
 	def find_next(self, evt):
 		'''Select next search hit'''
-		start, finish = self.get_dna_selection()
+		start, finish, zero = self.get_dna_selection()
 		for i in range(len(self.state.search_hits)):
 			if start < self.state.search_hits[i][0]:
 				self.set_dna_selection(self.state.search_hits[i])
@@ -1016,26 +1007,20 @@ Put Table here
 		#get selection for find or mutate
 		if evt.GetId() == 601:
 			self.nucleotideoraminoacidSelection = self.nucleotideoraminoacid.GetSelection()
-
-		self.frame_2_toolbar.ClearTools()
-		self.add_search_tools(self.findormutSelection)
+		self.update_search_options()
 
 
 	def toggle_searchandmutate_toolbar(self, evt):
 		'''Toggles the visibility of the search toolbar'''
 		if self.frame_1_toolbar.GetToolState(511) == True and self.frame_1_toolbar.GetToolState(512) == False:
-			self.frame_2_toolbar.Show()
 			self.frame_1_toolbar.EnableTool(512, 0)
-			self.frame_2_toolbar.ClearTools()
-			self.findormutSelection = 'Find'
-			self.add_search_tools(self.findormutSelection)
+			self.set_search_mode('Find')
+			self.frame_2_toolbar.Show()
 
 		elif self.frame_1_toolbar.GetToolState(511) == False and self.frame_1_toolbar.GetToolState(512) == True:
-			self.frame_2_toolbar.Show()
 			self.frame_1_toolbar.EnableTool(511, 0)
-			self.frame_2_toolbar.ClearTools()
-			self.findormutSelection = 'Mutate'
-			self.add_search_tools(self.findormutSelection)
+			self.set_search_mode('Mutate')
+			self.frame_2_toolbar.Show()
 
 		elif self.frame_1_toolbar.GetToolState(511) == False and self.frame_1_toolbar.GetToolState(512) == False:
 			self.frame_1_toolbar.EnableTool(511, 1)
