@@ -1,0 +1,96 @@
+# DNApy settings.
+#
+# This file holds the defaults. To change something, put the entries you want to change into your own file
+# (~/.dnapy/settings.toml, or the file named in the environment variable DNAPY_SETTINGS). Entries in your file
+# replace the ones given here; everything you leave out keeps its default value.
+
+[window]
+# width and height of the main window in pixels
+size = [1300, 650]
+
+[files]
+# the folder where the open and save dialogs start. Empty means the folder the program was started from.
+default_directory = ""
+
+[colors]
+# named colors, as #rrggbb. "fw" is used for features on the leading strand, "rv" (lighter) for the complement
+red = { fw = "#B01A1A", rv = "#CC3B3B" }
+orange = { fw = "#e29425", rv = "#f5c27a" }
+yellow = { fw = "#ffe349", rv = "#fdf388" }
+green = { fw = "#159918", rv = "#68A819" }
+cyan = { fw = "#0EA8C7", rv = "#19B5B3" }
+blue = { fw = "#166AC4", rv = "#3886D9" }
+purple = { fw = "#574E96", rv = "#6A62A6" }
+magenta = { fw = "#a14673", rv = "#c57fad" }
+burgundy = { fw = "#955050", rv = "#b58d8d" }
+grey = { fw = "#848484", rv = "#c2c2c2" }
+
+[features]
+# color of feature types that are not listed below
+fallback_color = "grey"
+
+[features.colors]
+# GenBank feature key = name of a color from [colors]
+promoter = "cyan"
+CAAT_signal = "burgundy"
+TATA_signal = "burgundy"
+"-35_signal" = "burgundy"
+"-10_signal" = "burgundy"
+RBS = "burgundy"
+gene = "orange"
+intron = "orange"
+exon = "green"
+CDS = "green"
+terminator = "red"
+misc_feature = "grey"
+primer_bind = "magenta"
+rep_origin = "blue"
+modified_base = "yellow"
+variation = "yellow"
+protein_bind = "purple"
+enhancer = "grey"
+"5'UTR" = "grey"
+"3'UTR" = "grey"
+polyA_site = "grey"
+misc_binding = "grey"
+mRNA = "grey"
+prim_transcript = "grey"
+precursor_RNA = "grey"
+"5'clip" = "grey"
+"3'clip" = "grey"
+polyA_signal = "grey"
+GC_signal = "grey"
+attenuator = "grey"
+misc_signal = "grey"
+sig_peptide = "grey"
+transit_peptide = "grey"
+mat_peptide = "grey"
+STS = "grey"
+unsure = "grey"
+conflict = "grey"
+misc_difference = "grey"
+old_sequence = "grey"
+LTR = "grey"
+repeat_region = "grey"
+repeat_unit = "grey"
+satellite = "grey"
+rRNA = "grey"
+tRNA = "grey"
+ncRNA = "grey"
+scRNA = "grey"
+snRNA = "grey"
+snoRNA = "grey"
+misc_RNA = "grey"
+source = "grey"
+misc_recomb = "grey"
+misc_structure = "grey"
+iDNA = "grey"
+stem_loop = "grey"
+"D-loop" = "grey"
+C_region = "grey"
+D_segment = "grey"
+J_segment = "grey"
+N_region = "grey"
+S_region = "grey"
+V_region = "grey"
+V_segment = "grey"

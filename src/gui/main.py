@@ -38,7 +38,8 @@ import re
 import wx
 					  #See documentation for more detail
 from .compat import pub
-from . import config
+from .. import settings
+from .. import REPO_DIR
 
 from .. import pyperclip
 import subprocess
@@ -72,7 +73,6 @@ from . import mixed_base_codons_GUI
 #make rightklick menus
 
 
-config.load_defaults(globals(), variables=True)
 
 
 
@@ -104,7 +104,7 @@ class DNAedit(DNApyBaseClass):
 		self.plasmidview = plasmid_GUI.PlasmidView2(splitter0, -1)
 				
 
-		splitter0.SplitVertically( self.scroll, self.plasmidview, sashPosition=int(windowsize[0]/1.75))
+		splitter0.SplitVertically( self.scroll, self.plasmidview, sashPosition=int(settings.get().window_size[0]/1.75))
 
 		sizer = wx.BoxSizer(wx.HORIZONTAL)
 		sizer.Add(splitter0, proportion=-1, flag=wx.EXPAND)
@@ -157,7 +157,7 @@ class DNApy(wx.Frame):
 
 
 	def __init__(self, parent, id, title):
-		wx.Frame.__init__(self, parent, id, title, size=windowsize) #size of program
+		wx.Frame.__init__(self, parent, id, title, size=settings.get().window_size) #size of program
 		ID=wx.NewIdRef()
 
 		#self.DNApy = wx.Notebook(self, ID, style=0) ######create blank notebook
@@ -253,12 +253,11 @@ class DNApy(wx.Frame):
 
 		elif self.fileopen == True: #if a file IS open, make a new window
 			# start another instance of the program, from the repository root so that the package is found
-			subprocess.Popen([sys.executable, '-m', 'src.gui.main'], cwd=config.ROOT_DIR)
+			subprocess.Popen([sys.executable, '-m', 'src.gui.main'], cwd=REPO_DIR)
 
 	def open_file(self, evt):
 		'''Function for opening file'''
-		self.dir_to_open = default_filepath
-		self.dir_to_open = os.getcwd() # the folder the program was started from
+		self.dir_to_open = settings.get().start_directory
 		dlg = wx.FileDialog( self, style=wx.FD_OPEN|wx.FD_FILE_MUST_EXIST,   defaultDir=self.dir_to_open ,wildcard='GenBank files (*.gb;*.gbk)|*.gb;*.gbk|Any file (*)|*')
 
 		if dlg.ShowModal() == wx.ID_CANCEL:
@@ -324,7 +323,7 @@ class DNApy(wx.Frame):
 				if filepath[i] in '//\\':
 					dire = filepath[0:i+1]
 		else:
-			dire = default_filepath
+			dire = settings.get().start_directory
 		#get save dialog
 		dlg = wx.FileDialog( self, style=wx.FD_SAVE | wx.FD_OVERWRITE_PROMPT,defaultDir=dire,wildcard='GenBank files (*.gb)|*.gb|Any file (*)|*')
 		dlg.ShowModal()
@@ -827,45 +826,45 @@ Put Table here
 
 
 		#New Document
-		self.frame_1_toolbar.AddTool(500, "New Document", wx.Bitmap(files['default_dir']+"/icon/new.png", wx.BITMAP_TYPE_ANY), wx.NullBitmap, wx.ITEM_NORMAL, 'New File', "New File") #last one is the one displayed in status bar
+		self.frame_1_toolbar.AddTool(500, "New Document", wx.Bitmap(settings.get().icon('new.png'), wx.BITMAP_TYPE_ANY), wx.NullBitmap, wx.ITEM_NORMAL, 'New File', "New File") #last one is the one displayed in status bar
 		self.Bind(wx.EVT_TOOL, self.new_file, id=500)
 		#Open File
-		self.frame_1_toolbar.AddTool(501, "Open File", wx.Bitmap(files['default_dir']+"/icon/open.png", wx.BITMAP_TYPE_ANY), wx.NullBitmap, wx.ITEM_NORMAL, 'Load File', 'Load File')
+		self.frame_1_toolbar.AddTool(501, "Open File", wx.Bitmap(settings.get().icon('open.png'), wx.BITMAP_TYPE_ANY), wx.NullBitmap, wx.ITEM_NORMAL, 'Load File', 'Load File')
 		self.Bind(wx.EVT_TOOL, self.open_file, id=501)
 		#Save current file
-		self.frame_1_toolbar.AddTool(502, "Save current file", wx.Bitmap(files['default_dir']+"/icon/save.png", wx.BITMAP_TYPE_ANY), wx.NullBitmap, wx.ITEM_NORMAL, 'Save File', 'Save File')
+		self.frame_1_toolbar.AddTool(502, "Save current file", wx.Bitmap(settings.get().icon('save.png'), wx.BITMAP_TYPE_ANY), wx.NullBitmap, wx.ITEM_NORMAL, 'Save File', 'Save File')
 		self.Bind(wx.EVT_TOOL, self.save_file, id=502)
 		#Save as
-		self.frame_1_toolbar.AddTool(503, "Save as", wx.Bitmap(files['default_dir']+"/icon/saveas.png", wx.BITMAP_TYPE_ANY), wx.NullBitmap, wx.ITEM_NORMAL, 'Save File As', 'Save File As')
+		self.frame_1_toolbar.AddTool(503, "Save as", wx.Bitmap(settings.get().icon('saveas.png'), wx.BITMAP_TYPE_ANY), wx.NullBitmap, wx.ITEM_NORMAL, 'Save File As', 'Save File As')
 		self.Bind(wx.EVT_TOOL, self.save_as_file, id=503)
 		#cut
-		self.frame_1_toolbar.AddTool(504, "cut", wx.Bitmap(files['default_dir']+"/icon/cut.png", wx.BITMAP_TYPE_ANY), wx.NullBitmap, wx.ITEM_NORMAL, 'cut', 'cut')
+		self.frame_1_toolbar.AddTool(504, "cut", wx.Bitmap(settings.get().icon('cut.png'), wx.BITMAP_TYPE_ANY), wx.NullBitmap, wx.ITEM_NORMAL, 'cut', 'cut')
 		self.Bind(wx.EVT_TOOL, self.cut, id=504)
 		#copy
-		self.frame_1_toolbar.AddTool(505, "copy", wx.Bitmap(files['default_dir']+"/icon/copy.png", wx.BITMAP_TYPE_ANY), wx.NullBitmap, wx.ITEM_NORMAL, 'copy', 'copy')
+		self.frame_1_toolbar.AddTool(505, "copy", wx.Bitmap(settings.get().icon('copy.png'), wx.BITMAP_TYPE_ANY), wx.NullBitmap, wx.ITEM_NORMAL, 'copy', 'copy')
 		self.Bind(wx.EVT_TOOL, self.copy, id=505)
 		#paste
-		self.frame_1_toolbar.AddTool(506, "paste", wx.Bitmap(files['default_dir']+"/icon/paste.png", wx.BITMAP_TYPE_ANY), wx.NullBitmap, wx.ITEM_NORMAL, 'paste', 'paste')
+		self.frame_1_toolbar.AddTool(506, "paste", wx.Bitmap(settings.get().icon('paste.png'), wx.BITMAP_TYPE_ANY), wx.NullBitmap, wx.ITEM_NORMAL, 'paste', 'paste')
 		self.Bind(wx.EVT_TOOL, self.paste, id=506)
 		#Undo
-		self.frame_1_toolbar.AddTool(513, "Undo", wx.Bitmap(files['default_dir']+"/icon/undo.png", wx.BITMAP_TYPE_ANY), wx.NullBitmap, wx.ITEM_NORMAL, 'Undo', 'Undo')
+		self.frame_1_toolbar.AddTool(513, "Undo", wx.Bitmap(settings.get().icon('undo.png'), wx.BITMAP_TYPE_ANY), wx.NullBitmap, wx.ITEM_NORMAL, 'Undo', 'Undo')
 		self.Bind(wx.EVT_TOOL, self.Undo, id=513)
 		#Redo
-		self.frame_1_toolbar.AddTool(514, "Redo", wx.Bitmap(files['default_dir']+"/icon/redo.png", wx.BITMAP_TYPE_ANY), wx.NullBitmap, wx.ITEM_NORMAL, 'Redo', 'Redo')
+		self.frame_1_toolbar.AddTool(514, "Redo", wx.Bitmap(settings.get().icon('redo.png'), wx.BITMAP_TYPE_ANY), wx.NullBitmap, wx.ITEM_NORMAL, 'Redo', 'Redo')
 		self.Bind(wx.EVT_TOOL, self.Redo, id=514)
 		#Print current window
-#   	self.frame_1_toolbar.AddTool(510, "Print current window", wx.Bitmap(files['default_dir']+"/icon/print.png", wx.BITMAP_TYPE_ANY), wx.NullBitmap, wx.ITEM_NORMAL, 'Print Current Window', 'Print Current Window')
+#   	self.frame_1_toolbar.AddTool(510, "Print current window", wx.Bitmap(settings.get().icon('print.png'), wx.BITMAP_TYPE_ANY), wx.NullBitmap, wx.ITEM_NORMAL, 'Print Current Window', 'Print Current Window')
 #  		self.Bind(wx.EVT_TOOL, self.print_setup, id=510)
 
-		self.frame_1_toolbar.AddCheckTool(511, 'Find', wx.Bitmap(files['default_dir']+"/icon/search.png", wx.BITMAP_TYPE_ANY), wx.Bitmap(files['default_dir']+"/icon/search.png", wx.BITMAP_TYPE_ANY), 'Find', 'Find')
+		self.frame_1_toolbar.AddCheckTool(511, 'Find', wx.Bitmap(settings.get().icon('search.png'), wx.BITMAP_TYPE_ANY), wx.Bitmap(settings.get().icon('search.png'), wx.BITMAP_TYPE_ANY), 'Find', 'Find')
 		self.Bind(wx.EVT_TOOL, self.toggle_searchandmutate_toolbar, id=511)
 
-		self.frame_1_toolbar.AddCheckTool(512, 'Mutate', wx.Bitmap(files['default_dir']+"/icon/mutate.png", wx.BITMAP_TYPE_ANY), wx.Bitmap(files['default_dir']+"/icon/search.png", wx.BITMAP_TYPE_ANY), 'Mutate', 'Mutate')
+		self.frame_1_toolbar.AddCheckTool(512, 'Mutate', wx.Bitmap(settings.get().icon('mutate.png'), wx.BITMAP_TYPE_ANY), wx.Bitmap(settings.get().icon('search.png'), wx.BITMAP_TYPE_ANY), 'Mutate', 'Mutate')
 		self.Bind(wx.EVT_TOOL, self.toggle_searchandmutate_toolbar, id=512)
 
 
 		#enzyme selector
-		self.frame_1_toolbar.AddTool(515, "Restriction Enzymes", wx.Bitmap(files['default_dir']+"/icon/restrictionEnzyme.png", wx.BITMAP_TYPE_ANY), wx.NullBitmap, wx.ITEM_NORMAL, 'Restriction Enzymes', 'Restriction Enzymes')
+		self.frame_1_toolbar.AddTool(515, "Restriction Enzymes", wx.Bitmap(settings.get().icon('restrictionEnzyme.png'), wx.BITMAP_TYPE_ANY), wx.NullBitmap, wx.ITEM_NORMAL, 'Restriction Enzymes', 'Restriction Enzymes')
 		self.Bind(wx.EVT_TOOL, self.SelectEnzymes, id=515)
 
 
@@ -945,16 +944,16 @@ Put Table here
 		#'go'
 		if typeof == 'Find':
 			#find previous
-			self.frame_2_toolbar.AddTool(507, "Find previous", wx.Bitmap(files['default_dir']+"/icon/up.png", wx.BITMAP_TYPE_ANY), wx.NullBitmap, wx.ITEM_NORMAL, 'Find previous', 'Find previous')
+			self.frame_2_toolbar.AddTool(507, "Find previous", wx.Bitmap(settings.get().icon('up.png'), wx.BITMAP_TYPE_ANY), wx.NullBitmap, wx.ITEM_NORMAL, 'Find previous', 'Find previous')
 			self.Bind(wx.EVT_TOOL, self.find_previous, id=507)
 			#find next
-			self.frame_2_toolbar.AddTool(509, "Find next", wx.Bitmap(files['default_dir']+"/icon/down.png", wx.BITMAP_TYPE_ANY), wx.NullBitmap, wx.ITEM_NORMAL, 'Find next', 'Find next')
+			self.frame_2_toolbar.AddTool(509, "Find next", wx.Bitmap(settings.get().icon('down.png'), wx.BITMAP_TYPE_ANY), wx.NullBitmap, wx.ITEM_NORMAL, 'Find next', 'Find next')
 			self.Bind(wx.EVT_TOOL, self.find_next, id=509)
 			#search glass
-			self.frame_2_toolbar.AddTool(604, "Find", wx.Bitmap(files['default_dir']+"/icon/search.png", wx.BITMAP_TYPE_ANY), wx.NullBitmap, wx.ITEM_NORMAL, 'Find', 'Find')
+			self.frame_2_toolbar.AddTool(604, "Find", wx.Bitmap(settings.get().icon('search.png'), wx.BITMAP_TYPE_ANY), wx.NullBitmap, wx.ITEM_NORMAL, 'Find', 'Find')
 			self.Bind(wx.EVT_TOOL, self.find, id=604)
 		elif typeof == 'Mutate':
-			self.frame_2_toolbar.AddTool(604, "Mutate", wx.Bitmap(files['default_dir']+"/icon/up.png", wx.BITMAP_TYPE_ANY), wx.NullBitmap, wx.ITEM_NORMAL, 'Mutate', 'Mutate')
+			self.frame_2_toolbar.AddTool(604, "Mutate", wx.Bitmap(settings.get().icon('up.png'), wx.BITMAP_TYPE_ANY), wx.NullBitmap, wx.ITEM_NORMAL, 'Mutate', 'Mutate')
 			self.Bind(wx.EVT_TOOL, self.mutate, id=604)
 
 	def find(self, evt):

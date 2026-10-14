@@ -245,27 +245,45 @@ class TestMainWindow(GuiTestCase):
         self.assertEqual(window.GetTitle(), 'NewFile - DNApy')
 
 
-class TestFeatureColour(GuiTestCase):
-    def colour(self, key):
-        from src.gui import config
-        namespace = {}
-        config.load_defaults(namespace)
-        return config.feature_colour(namespace, key)
+class TestUserSettings(GuiTestCase):
+    """The GUI uses the settings, so a user file changes how it looks."""
 
-    def test_plain_keys(self):
-        self.assertEqual(self.colour('CDS')['color'], 'green')
-        self.assertEqual(self.colour('promoter')['color'], 'cyan')
+    def use_settings(self, text):
+        from unittest import mock
+        from src import settings
+        folder = tempfile.TemporaryDirectory()
+        self.addCleanup(folder.cleanup)
+        path = os.path.join(folder.name, 'user.toml')
+        with open(path, 'w') as f:
+            f.write(text)
+        patcher = mock.patch.object(settings, '_current', settings.load(path))
+        patcher.start()
+        self.addCleanup(patcher.stop)
 
-    def test_keys_that_are_not_python_names(self):
-        # in the settings these are called a35_signal, a10_signal, a5UTR, a3UTR and Daloop
-        self.assertEqual(self.colour('-35_signal')['color'], 'burgundy')
-        self.assertEqual(self.colour('-10_signal')['color'], 'burgundy')
-        for key in ("5'UTR", "3'UTR", "D-loop"):
-            self.assertEqual(self.colour(key)['color'], 'grey', key)
+    def test_window_size(self):
+        from src.gui import main
+        self.use_settings('[window]\nsize = [900, 500]\n')
+        window = main.DNApy(None, -1, 'DNApy')
+        self.addCleanup(window.Destroy)
+        self.assertEqual(tuple(window.GetSize()), (900, 500))
 
-    def test_unknown_keys_are_grey(self):
-        self.assertEqual(self.colour('something_new')['color'], 'grey')
-        self.assertEqual(self.colour('files')['color'], 'grey')  # a name in the settings that is not a colour
+    def test_feature_colour_in_the_editor(self):
+        from src.gui import dnaEditorCairo_GUI
+        wx = wxapp.wx
+
+        def count_cds_bar_pixels(colour):
+            frame = wx.Frame(None, size=(900, 700))
+            self.addCleanup(frame.Destroy)
+            scroll = wx.ScrolledWindow(frame, wx.ID_ANY)
+            scroll.SetScrollRate(1, 15)
+            editor = dnaEditorCairo_GUI.TextEdit(scroll, id=wx.ID_ANY)
+            frame.Show()
+            editor.update_ownUI()
+            return count_pixels(editor._Buffer, colour)
+
+        self.assertEqual(count_cds_bar_pixels((0xB0, 0x1A, 0x1A)), 0)  # the CDS is green by default
+        self.use_settings('[features.colors]\nCDS = "red"\n')
+        self.assertGreater(count_cds_bar_pixels((0xB0, 0x1A, 0x1A)), 100)
 
 
 class TestMenuItems(GuiTestCase):

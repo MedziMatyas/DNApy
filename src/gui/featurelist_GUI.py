@@ -39,7 +39,7 @@ from wx.lib.agw import ultimatelistctrl as ULC
 import wx
  	                                  #See documentation for more detail
 from .compat import pub
-from . import config
+from .. import settings
 
 import sys, os
 import string
@@ -52,7 +52,6 @@ from .. import genbank
 from .base_class import DNApyBaseClass
 from . import featureedit_GUI
 
-config.load_defaults(globals())
 
 
 
@@ -77,23 +76,23 @@ class FeatureList(DNApyBaseClass):
 		
 		#buttons
 		padding = 10 #how much to add around the picture
-		imageFile = files['default_dir']+"/icon/new_small.png"
+		imageFile = settings.get().icon('new_small.png')
 		image1 = wx.Image(imageFile, wx.BITMAP_TYPE_ANY).ConvertToBitmap()
 		newfeature = wx.BitmapButton(self, id=1, bitmap=image1, size = (image1.GetWidth()+padding, image1.GetHeight()+padding), name = "share")
 
-		imageFile = files['default_dir']+"/icon/remove_small.png"
+		imageFile = settings.get().icon('remove_small.png')
 		image1 = wx.Image(imageFile, wx.BITMAP_TYPE_ANY).ConvertToBitmap()
 		deletefeature = wx.BitmapButton(self, id=2, bitmap=image1, size = (image1.GetWidth()+padding, image1.GetHeight()+padding), name = "share")
 
-		imageFile = files['default_dir']+"/icon/move_up.png"
+		imageFile = settings.get().icon('move_up.png')
 		image1 = wx.Image(imageFile, wx.BITMAP_TYPE_ANY).ConvertToBitmap()
 		moveup = wx.BitmapButton(self, id=4, bitmap=image1, size = (image1.GetWidth()+padding, image1.GetHeight()+padding), name = "share")
 
-		imageFile = files['default_dir']+"/icon/move_down.png"
+		imageFile = settings.get().icon('move_down.png')
 		image1 = wx.Image(imageFile, wx.BITMAP_TYPE_ANY).ConvertToBitmap()
 		movedown = wx.BitmapButton(self, id=5, bitmap=image1, size = (image1.GetWidth()+padding, image1.GetHeight()+padding), name = "share")
 
-		imageFile = files['default_dir']+"/icon/edit.png"
+		imageFile = settings.get().icon('edit.png')
 		image1 = wx.Image(imageFile, wx.BITMAP_TYPE_ANY).ConvertToBitmap()
 		edit = wx.BitmapButton(self, id=6, bitmap=image1, size = (image1.GetWidth()+padding, image1.GetHeight()+padding), name = "edit")
 		
@@ -296,7 +295,7 @@ class FeatureList(DNApyBaseClass):
 		'''Takes single feature and finds its color, if any'''
 		#piece of code to check if there are assigned colors to the features
 		
-		Key = config.feature_colour(globals(), feature['key'])
+		Key = settings.get().feature_colour(feature['key'])
 		
 		complement = feature['complement']
 		if complement == True: self.current_highlight_color = Key['rv']
@@ -330,7 +329,6 @@ class MyApp(wx.App):
 
 if __name__ == '__main__': #if script is run by itself and not loaded	
 
-	config.load_defaults(globals())
 
 	genbank.dna_selection = (1, -1)	 #variable for storing current DNA selection
 	genbank.feature_selection = False #variable for storing current feature selection

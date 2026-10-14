@@ -33,7 +33,7 @@
 
  	                                  #See documentation for more detail
 from .compat import pub
-from . import config
+from .. import settings
 
 from copy import deepcopy
 import string
@@ -63,7 +63,6 @@ from . import plasmid_GUI
 
 
 
-config.load_defaults(globals())
 
 
 ############# Set up custom stc lexer class ##########################
@@ -122,10 +121,7 @@ class DNALexer(BaseLexer):
 			for entry in featurelist:
 
 				featuretype, complement, start, finish, name, index = entry
-				featuretype = featuretype.replace('-', 'a') #for -10 and -35 region
-				featuretype = featuretype.replace("5'", "a5") #for 5' features
-				featuretype = featuretype.replace("3'", "a3") #for 5' features
-				color = config.feature_colour(globals(), featuretype)['color'] #get the color of feature (as string)
+				color = settings.get().feature_colour(featuretype)['color'] #get the color of feature (as string)
 				assert type(color) == str
 
 				if color == 'red' and complement == False: 
@@ -729,16 +725,6 @@ class TextEdit(DNApyBaseClass):
 ################ other functions ###############################
 
 
-	def OnCloseWindow(self, e):
-		self.close_all("")
-		foo=self.GetSize()  ###except for the window size of file 
-		if(self.IsMaximized()==0):
-			file=open(files['size'], "w")
-			file.write(str(foo[0])+"\n"+str(foo[1]))
-			file.close()
-		self.Destroy()
-		self.update_ownUI() #refresh everything
-
 		
 	def mouse_position(self, event):
 		'''Get which features are at a given position'''		
@@ -777,7 +763,6 @@ class MyApp(wx.App):
 
 if __name__ == '__main__': #if script is run by itself and not loaded	
 
-	config.load_defaults(globals())
 
 	genbank.dna_selection = (0, 0, -1)	 #variable for storing current DNA selection
 	genbank.feature_selection = False #variable for storing current feature selection

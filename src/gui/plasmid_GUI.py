@@ -41,7 +41,7 @@ from wx.lib.wxcairo import BitmapFromImageSurface
 
  	                                  	#See documentation for more detail
 from .compat import pub
-from . import config
+from .. import settings
 
 
 
@@ -62,7 +62,6 @@ import hashlib
 
 from . import options
 
-config.load_defaults(globals())
 
 
 
@@ -1277,7 +1276,7 @@ class drawPlasmid(DNApyBaseDrawingClass):
 			path 		= self.plasmidstore.drawnfeatures[a][0]
 			# get color
 			featuretype = self.plasmidstore.drawnfeatures[a][1]
-			color = config.feature_colour(globals(), featuretype)['fw'] #get the color of feature (as string)
+			color = settings.get().feature_colour(featuretype)['fw'] #get the color of feature (as string)
 			assert type(color) == str
 			r,g,b = colcol.hex_to_rgb(color)
 			r = float(r)/255
@@ -1413,28 +1412,28 @@ class PlasmidView2(DNApyBaseDrawingClass):
 		#buttons
 		padding = 10 #how much to add around the picture
 
-		imageFile 	= files['default_dir']+"/icon/circle.png"
+		imageFile 	= settings.get().icon('circle.png')
 		image1 		= wx.Image(imageFile, wx.BITMAP_TYPE_ANY).ConvertToBitmap()
 		circle 		= wx.BitmapButton(panel1, id=10, bitmap=image1, size = (image1.GetWidth()+padding, image1.GetHeight()+padding), name = "share")
 
-		imageFile 	= files['default_dir']+"/icon/group.png"
+		imageFile 	= settings.get().icon('group.png')
 		image1 		= wx.Image(imageFile, wx.BITMAP_TYPE_ANY).ConvertToBitmap()
 		group 		= wx.BitmapButton(panel1, id=11, bitmap=image1, size = (image1.GetWidth()+padding, image1.GetHeight()+padding), name = "share")
 
-		imageFile = files['default_dir']+"/icon/radiating.png"
+		imageFile = settings.get().icon('radiating.png')
 		image1 = wx.Image(imageFile, wx.BITMAP_TYPE_ANY).ConvertToBitmap()
 		radiating = wx.BitmapButton(panel1, id=12, bitmap=image1, size = (image1.GetWidth()+padding, image1.GetHeight()+padding), name = "share")
 
 
-		imageFile = files['default_dir']+"/icon/new_small.png"
+		imageFile = settings.get().icon('new_small.png')
 		image1 = wx.Image(imageFile, wx.BITMAP_TYPE_ANY).ConvertToBitmap()
 		newfeature = wx.BitmapButton(panel1, id=1, bitmap=image1, size = (image1.GetWidth()+padding, image1.GetHeight()+padding), name = "share")
 
-		imageFile = files['default_dir']+"/icon/remove_small.png"
+		imageFile = settings.get().icon('remove_small.png')
 		image1 = wx.Image(imageFile, wx.BITMAP_TYPE_ANY).ConvertToBitmap()
 		deletefeature = wx.BitmapButton(panel1, id=2, bitmap=image1, size = (image1.GetWidth()+padding, image1.GetHeight()+padding), name = "share")
 
-		imageFile = files['default_dir']+"/icon/edit.png"
+		imageFile = settings.get().icon('edit.png')
 		image1 = wx.Image(imageFile, wx.BITMAP_TYPE_ANY).ConvertToBitmap()
 		edit = wx.BitmapButton(panel1, id=6, bitmap=image1, size = (image1.GetWidth()+padding, image1.GetHeight()+padding), name = "edit")
 
@@ -1527,7 +1526,6 @@ class MyApp(wx.App):
 
 if __name__ == '__main__': #if script is run by itself and not loaded
 
-	config.load_defaults(globals())
 
 	genbank.dna_selection = (1, -1)	 #variable for storing current DNA selection
 	genbank.feature_selection = False #variable for storing current feature selection

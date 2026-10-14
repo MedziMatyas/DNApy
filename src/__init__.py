@@ -17,6 +17,7 @@ except ImportError:
     from .external import pyperclip
 
 ROOT_DIR = os.path.dirname(os.path.realpath(__file__))
+REPO_DIR = os.path.dirname(ROOT_DIR) # the top level folder of the repository
 
 DEFAULT_SETTINGS_DIR = os.path.join(ROOT_DIR, "defaults")
 SETTINGS_DIR = DEFAULT_SETTINGS_DIR
@@ -24,6 +25,7 @@ SETTINGS_DIR = DEFAULT_SETTINGS_DIR
 RESOURCES_DIR = os.path.join(ROOT_DIR, "resources")
 
 GUI_DIR = os.path.join(ROOT_DIR, "gui")
-ICONS_DIR = os.path.join(GUI_DIR, "icon")
+# the icons are in the top level folder of the repository, next to src
+ICONS_DIR = os.path.join(REPO_DIR, "icon")
 
 logging.getLogger(__name__).addHandler(logging.NullHandler())

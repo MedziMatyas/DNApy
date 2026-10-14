@@ -31,7 +31,7 @@
 
 
 from .compat import pub
-from . import config
+from .. import settings
 
 from copy import deepcopy
 import string
@@ -66,7 +66,6 @@ from ..other import colcol
 import hashlib
 
 
-config.load_defaults(globals())
 
 
 ########### class for text ######################
@@ -417,7 +416,7 @@ class TextEdit(DNApyBaseDrawingClass):
 						fillpath = self.ctx.copy_path()
 						self.ctx.new_path()
 						# get color
-						color = config.feature_colour(globals(), featuretype)['fw'] #get the color of feature (as string)
+						color = settings.get().feature_colour(featuretype)['fw'] #get the color of feature (as string)
 					else:
 						self.drawn_rv_locations, l = self.find_overlap(self.drawn_rv_locations, (start, finish))				
 						level = l * (featureheight+6)
@@ -464,7 +463,7 @@ class TextEdit(DNApyBaseDrawingClass):
 						fillpath = self.ctx.copy_path()
 						self.ctx.new_path()
 						# get color
-						color = config.feature_colour(globals(), featuretype)['fw'] #get the color of feature (as string)
+						color = settings.get().feature_colour(featuretype)['fw'] #get the color of feature (as string)
 
 					
 					paths[hname] = (color,fillpath ,textpath)
@@ -1322,16 +1321,6 @@ class TextEdit(DNApyBaseDrawingClass):
 
 ################ other functions ###############################
 
-
-	def OnCloseWindow(self, e):
-		self.close_all("")
-		foo=self.GetSize()  ###except for the window size of file
-		if(self.IsMaximized()==0):
-			file=open(files['size'], "w")
-			file.write(str(foo[0])+"\n"+str(foo[1]))
-			file.close()
-		self.Destroy()
-		self.update_ownUI() #refresh everything
 
 
 	def mouse_position(self, event):
