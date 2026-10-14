@@ -32,6 +32,7 @@ from copy import deepcopy
 import string
 from os import access,listdir
 import inspect
+import logging
 
 import sys, os
 import re
@@ -39,7 +40,6 @@ import wx
 					  #See documentation for more detail
 from .compat import pub
 from .. import settings
-from .. import REPO_DIR
 
 from .. import pyperclip
 import subprocess
@@ -68,6 +68,8 @@ from . import mixed_base_codons_GUI
 #if sys.platform == 'win32':
 #	pass
 
+
+log = logging.getLogger(__name__)
 
 #TODO
 #make rightklick menus
@@ -241,8 +243,8 @@ class DNApy(wx.Frame):
 
 
 		elif self.fileopen == True: #if a file IS open, make a new window
-			# start another instance of the program, from the repository root so that the package is found
-			subprocess.Popen([sys.executable, '-m', 'src.gui.main'], cwd=REPO_DIR)
+			# start another instance of the program
+			subprocess.Popen([sys.executable, '-m', 'dnapy'])
 
 	def open_file(self, evt):
 		'''Function for opening file'''
@@ -264,7 +266,7 @@ class DNApy(wx.Frame):
 
 		name, extension = os.path.splitext(self.state.gb.fileName)
 		extension = extension.lstrip('.') # names can contain several dots
-		if extension.lower() == 'gb':
+		if extension.lower() in ('gb', 'gbk'):
 			self.state.open(genbank.gbobject(all_path)) #make a genbank object, read the file and make it the open file
 
 			self.SetTitle(self.state.gb.fileName+' - DNApy')
@@ -289,7 +291,8 @@ class DNApy(wx.Frame):
 			#self.DNApy.update_ownUI()
 
 		else:
-			print("error, not a gb file")
+			log.error("%s is not a GenBank file", self.state.gb.fileName)
+			wx.MessageBox("%s is not a GenBank file (.gb or .gbk)." % self.state.gb.fileName, "DNApy", wx.OK | wx.ICON_ERROR)
 
 		self.Bind(wx.EVT_UPDATE_UI, self.update_statusbar)
 
@@ -731,7 +734,6 @@ Put Table here
 
 	def update_ownUI(self):
 		#and now actually update the UI
-		print(('filever index', self.state.gb.get_file_version_index()))
 		if self.state.gb.get_file_version_index() <= 0: #if there are no undos available
 			self.frame_1_toolbar.EnableTool(513, False)
 		else:
@@ -1252,6 +1254,12 @@ class MyApp(wx.App):
 
 
 
-if __name__ == '__main__': #if script is run by itself and not loaded
+def main():
+	'''Start the program. This is what the dnapy command and python -m dnapy run.'''
+	logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s') # messages of the program go to the console
 	app = MyApp(0)
 	app.MainLoop()
+
+
+if __name__ == '__main__': #if script is run by itself and not loaded
+	main()

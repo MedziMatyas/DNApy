@@ -4,7 +4,7 @@ import os
 import tempfile
 import unittest
 
-from src import genbank
+from dnapy import genbank
 
 from . import wxapp
 
@@ -230,6 +230,30 @@ class TestMutation(unittest.TestCase):
     def test_codon_must_encode_the_requested_amino_acid(self):
         with self.assertRaises(AssertionError):
             quiet(self.gb.mutate, 'A', 0, 'A2G(AAA)')
+
+
+class TestLogging(unittest.TestCase):
+    """The program reports through logging, it does not print."""
+
+    def test_a_mutation_is_logged_and_not_printed(self):
+        gb = load()
+        with self.assertLogs('dnapy.genbank', level='INFO') as logged:
+            with contextlib.redirect_stdout(io.StringIO()) as printed:
+                gb.mutate('A', 0, 'A2G(GGA)')
+        self.assertEqual(printed.getvalue(), '')
+        self.assertIn('Mutation A2G(GGA) performed', logged.output[0])
+
+    def test_a_search_without_hits_is_logged(self):
+        gb = load()
+        with self.assertLogs('dnapy.genbank', level='INFO') as logged:
+            gb.FindNucleotide('')
+        self.assertIn('searchstring is missing', logged.output[0])
+
+    def test_removed_characters_are_logged_when_asked_for(self):
+        from dnapy import dna
+        with self.assertLogs('dnapy.dna', level='WARNING') as logged:
+            dna.CleanDNA('AXT', silent=False)
+        self.assertIn('"X" is not a valid DNA character', logged.output[0])
 
 
 class TestFeatureEditing(unittest.TestCase):

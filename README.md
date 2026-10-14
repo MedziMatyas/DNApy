@@ -4,14 +4,14 @@ A free and open source desktop program for viewing and editing DNA in the GenBan
 
 DNApy shows a sequence and its complementary strand with the annotated features, next to a circular map of the plasmid. You can edit the sequence, edit the features, find and mutate positions, translate to protein, design mixed base codons and see where restriction enzymes cut.
 
-![DNApy showing pUC19](resources/DNApy_window.png "DNApy showing pUC19")
+![DNApy showing pUC19](docs/images/DNApy_window.png "DNApy showing pUC19")
 
 DNApy was started by Martin Engqvist ([mengqvist/DNApy](https://github.com/mengqvist/DNApy)) for Python 2 and Linux. This repository is a revival of it for Python 3. Most of the work so far went into making it run again and covering it with tests; see [Status](#status).
 
 ## Status
 
 - **It runs on Python 3 and is usable for viewing and editing GenBank files.** It has been developed and tried on Windows 11 with Python 3.14, wxPython 4.3.1 and pycairo 1.29. Linux and macOS have not been tried yet (the original ran on Linux).
-- **Tested automatically** (174 tests): the sequence and GenBank code, restriction enzymes, codon design, settings, and the GUI with synthetic mouse, keyboard and menu events. The GUI has also been tried by hand, but not every dialog and function.
+- **Tested automatically** (185 tests): the sequence and GenBank code, restriction enzymes, codon design, settings, and the GUI with synthetic mouse, keyboard and menu events. The GUI has also been tried by hand, but not every dialog and function.
 - **Not finished**: see [Known limitations](#known-limitations) and the TODO list in [OVERVIEW.md](OVERVIEW.md).
 
 This is software under development. Keep a copy of your files; it reads and writes GenBank files, and the writer does not preserve everything that other programs put into a file.
@@ -26,7 +26,7 @@ This is software under development. Keep a copy of your files; it reads and writ
 - Mutates a position, by nucleotide or by amino acid (for example `A2G(GGA)`).
 - Translates a selection, its reverse complement, or a feature.
 - Designs mixed base codons: choose the amino acids you want and it finds the degenerate codon with the fewest off-target amino acids.
-- Finds restriction sites for the enzymes of the REBASE list in `resources/emboss_e.txt`, marks the cut positions, and simulates a digest on an agarose gel preview.
+- Finds restriction sites for the enzymes of the REBASE list in `dnapy/data/emboss_e.txt`, marks the cut positions, and simulates a digest on an agarose gel preview.
 - Opens and saves `.gb` files.
 
 ## Requirements
@@ -34,25 +34,35 @@ This is software under development. Keep a copy of your files; it reads and writ
 - Python 3.11 or newer (the settings are read with the standard library module `tomllib`)
 - [wxPython](https://wxpython.org) 4.x, for the window
 - [pycairo](https://pycairo.readthedocs.io), for the drawing
-- [PyPubSub](https://pypi.org/project/Pypubsub/), recommended (without it the copy that ships with wxPython is used, which is deprecated and prints a warning)
+- [PyPubSub](https://pypi.org/project/Pypubsub/), for messages between the panels
 
-```
-pip install wxPython pycairo PyPubSub
-```
+`pip install` (below) installs all of them. `pyperclip` is included in the repository and needs no installation. On Linux, wxPython and pycairo need some system libraries; check their installation pages.
 
-`pyperclip` is included in the repository and needs no installation. On Linux, wxPython and pycairo need some system libraries; check their installation pages.
+## Installing and running
 
-## Running
-
-Download or clone the repository and start the program from its top level folder:
+Download or clone the repository, then install it from its top level folder:
 
 ```
 git clone https://github.com/MedziMatyas/DNApy.git
 cd DNApy
-python -m src.gui.main
+pip install .
 ```
 
-It has to be started with `-m` from this folder, because the program is a package. There is no installer or `pip install` yet.
+This installs the `dnapy` package with its data files and creates a `dnapy` command. Start the program with either of
+
+```
+dnapy
+python -m dnapy
+```
+
+It is not published on PyPI. A virtual environment is a good place to install it into.
+
+To run it from the folder without installing it (for development), install the requirements yourself and start it from the top level folder:
+
+```
+pip install wxPython pycairo PyPubSub
+python -m dnapy
+```
 
 Use File > Open (`Ctrl+O`) to open a GenBank file. A small test file is in `tests/data/test_plasmid.gb`, and `tests/data/puc19.gb` is the pUC19 cloning vector.
 
@@ -60,7 +70,7 @@ Some shortcuts: `Ctrl+Z` / `Shift+Ctrl+Z` undo and redo, `Ctrl+X` / `Ctrl+C` / `
 
 ## Configuration
 
-The defaults are in [`src/defaults/settings.toml`](src/defaults/settings.toml): the size of the window, the folder where the file dialogs start, the colors, and the color of each GenBank feature type.
+The defaults are in [`dnapy/defaults/settings.toml`](dnapy/defaults/settings.toml): the size of the window, the folder where the file dialogs start, the colors, and the color of each GenBank feature type.
 
 To change something, write only the entries you want to change into `~/.dnapy/settings.toml` (or into the file named by the environment variable `DNAPY_SETTINGS`). Everything you leave out keeps its default. For example, to make coding sequences blue and the window smaller:
 
@@ -74,6 +84,8 @@ CDS = "blue"
 
 The settings are checked when the program starts, and a wrong entry gives an error that says which one.
 
+DNA ladders that you add in the digest window are saved in `~/.dnapy/dnaLadders.lst`.
+
 ## Tests
 
 ```
@@ -86,18 +98,18 @@ The GUI tests need wxPython and pycairo and open (and close) windows; without th
 
 | Folder | Content |
 |---|---|
-| `src/` | The program. `genbank.py` (GenBank reading, writing and editing), `dna.py`, `protein.py`, `enzyme.py`, `mixed_base_codons.py`, `settings.py` |
-| `src/gui/` | The window and its panels (wxPython and Cairo) |
-| `src/defaults/` | `settings.toml` |
-| `src/external/` | Third party code that ships with the program (pyperclip, trace file readers, ...) |
-| `resources/` | The restriction enzyme list and DNA ladders |
-| `icon/` | The icons |
-| `docs/` | Reference text about GenBank features and qualifiers |
+| `dnapy/` | The program. `genbank.py` (GenBank reading, writing and editing), `dna.py`, `protein.py`, `enzyme.py`, `mixed_base_codons.py`, `ladders.py`, `settings.py` |
+| `dnapy/gui/` | The window and its panels (wxPython and Cairo) |
+| `dnapy/data/` | The restriction enzyme list, DNA ladders and the icons |
+| `dnapy/defaults/` | `settings.toml` |
+| `dnapy/external/` | Third party code that ships with the program (pyperclip, trace file readers, ...) |
+| `docs/` | Reference text about GenBank features and qualifiers, and the picture above |
 | `tests/` | The tests and test files |
+| `pyproject.toml` | Packaging |
 
 ## Known limitations
 
-- Developed on Windows only so far, and run from source only (no installer, `setup.py` is not working yet).
+- Developed on Windows only so far. It can be installed with pip from the repository, but is not published on PyPI and there is no stand-alone installer.
 - The text is drawn with Cairo's basic text functions on a monospaced grid. That works for DNA, but labels have no advanced text layout, and high resolution displays have not been looked at.
 - The sequence view draws the whole sequence as one image, which is fine for plasmids of a few kilobases but not for very long sequences. The cursor does not scroll into view when moved with the keyboard.
 - On the plasmid map, long labels are cut off at the edge of the panel.

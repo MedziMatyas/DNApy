@@ -17,22 +17,21 @@ These features are implemented, according to the README:
 
 These are listed as not implemented: ab1 trace reading, codon optimization, NCBI fetch and BLAST, primer design, PCR simulation, and multiple sequence alignment.
 
-## Layout (~20k lines)
-- **`src/` core logic, no GUI:**
+## Layout (current)
+The program is the package `dnapy`. It was called `src` until it was packaged; the history below uses the old names (`src/gui/main.py` is now `dnapy/gui/main.py`).
+- **`dnapy/` core logic, no GUI:**
   - `genbank.py` (2.3k lines) is the GenBank parser and data model.
   - `dna.py` holds translation, reverse complement, ambiguity codes and codon tables.
-  - `protein.py`, `enzyme.py`, `mixed_base_codons.py`, `oligo_localizer.py` and `peptide_localizer.py` cover the rest.
-- **`src/gui/`:**
-  - `main.py` is the entry point. It glues together the Cairo DNA editor, the plasmid view, the feature list and edit dialogs, and the enzyme dialog.
-  - The other GUI modules are one per panel or dialog.
-  - They are built on wxPython and pycairo, and communicate through `wx.lib.pubsub`.
-- **`src/external/`:** vendored third-party code: pyperclip, ABI/SCF/ZTR trace readers, MUSCLE wrapper, Needleman-Wunsch.
-- **`src/defaults/`:** `settings.toml` (the default settings, see Configuration below). `english` and `errors` are unused text files left over from another project.
-- **Other folders:**
-  - `src/other/` and `src/resources/` hold experimental code and parsers such as fasta and fastq.
-  - `resources/` holds enzyme lists and DNA ladders.
-  - `docs/` holds GenBank feature and qualifier reference text.
-  - `icon/` holds the icons.
+  - `protein.py`, `enzyme.py`, `mixed_base_codons.py`, `oligo_localizer.py`, `peptide_localizer.py` and `ladders.py` cover the rest; `settings.py` reads the settings.
+  - `parsers/` has the fasta, fastq and fastv readers (only fasta is used).
+- **`dnapy/gui/`:**
+  - `main.py` is the entry point (`main()`); `python -m dnapy` and the `dnapy` command run it. It glues together the Cairo DNA editor, the plasmid view, the feature list and edit dialogs, and the enzyme dialog.
+  - The other GUI modules are one per panel or dialog, `state.py` holds what they share, `monolayout.py` is the text layout of the editor.
+  - They are built on wxPython and pycairo, and communicate through PyPubSub.
+- **`dnapy/data/`:** the restriction enzyme list (`emboss_e.txt`), the list of commercial enzymes, the DNA ladders and the icons (`icons/`). These are package data, so they are installed with the program.
+- **`dnapy/defaults/settings.toml`:** the default settings (see Configuration below).
+- **`dnapy/external/`:** vendored third-party code: pyperclip (used), ABI/SCF/ZTR trace readers, MUSCLE wrapper, Needleman-Wunsch (unused so far, for the features that are not implemented).
+- **Top level:** `pyproject.toml` (packaging), `tests/`, `docs/` (GenBank feature and qualifier reference text, `images/` for the README).
 
 ## Why it was broken (original state, before the Python 3 port)
 The repo history explains it: a commit titled "Reorganize folder structure, break everything" was followed by "run 2to3 on entire project". The code was moved into a new layout and run through 2to3 without being finished. The README itself says "This repo is currently broken."
@@ -69,7 +68,7 @@ The non-GUI core (`dna`, `genbank`, `protein`, `enzyme`) looks closest to workin
 - Python 3 fixes: `None` comparisons in `mixed_base_codons.py`, bytes for the wx clipboard in `genbank.py`, removed `string.*` functions, tab/space mixes in three GUI files, a stray parenthesis in `src/other/seqfiles.py`.
 - Also fixed: a typo (`ncut52`) in `enzyme.py` that crashed for enzymes with two cuts.
 - The enzyme list (`resources/emboss_e.txt`) is located relative to the package, not the working directory.
-- Unit tests in `tests/` cover the core (174 tests including the GUI smoke tests), using the fixture `tests/data/test_plasmid.gb`. Run them with:
+- Unit tests in `tests/` cover the core (185 tests including the GUI smoke tests), using the fixture `tests/data/test_plasmid.gb`. Run them with:
 
 ```
 python -m unittest discover -s tests -t .
@@ -81,7 +80,7 @@ python -m unittest discover -s tests -t .
 - **Taxonomy** lost its spaces when a file was read ("other sequences" became "othersequences") and so was written back wrong. Names are now kept with single spaces, and wrapped lines work.
 
 ### GUI: ported, launches and draws
-Start it from the repository root with `python -m src.gui.main`.
+Start it with `python -m dnapy` (or the `dnapy` command after `pip install .`).
 - Package-relative imports, `src/gui/compat.py` (pubsub import), wxPython 4 API changes (`Add(item=...)`, `AddTool`, `AddCheckTool`, `wx.FD_OPEN`/`wx.FD_SAVE`, `wx.Bitmap`, `wx.NewIdRef`, int sash position).
 - **Pango removed from the DNA editor.** Text layout now lives in `src/gui/monolayout.py`: a pure-arithmetic layout for monospaced text (wrapping, index to position, position to index, selection rectangles), covered by `tests/test_monolayout.py`. The editor draws the strands with Cairo glyphs on a fixed grid, and the selection as filled rectangles behind the text. A monospaced font is picked by measuring glyph widths (Cairo's "monospace" alias resolves to a proportional font on Windows).
 - **Drawing target changed.** The editor and the plasmid view now draw on a `cairo.ImageSurface` and convert it to the `wx.Bitmap` (`BitmapFromImageSurface`). Drawing on a device context (`ContextFromDC`) mixed GDI and Cairo output on Windows, so text and shapes overwrote each other.
@@ -101,6 +100,13 @@ Start it from the repository root with `python -m src.gui.main`.
 - `tests/test_gui_smoke.py` also fires every menu item with a file loaded and a selection made (dialogs are cancelled) and fails on any exception.
 - **Not yet verified by hand:** clicking, dragging a selection, typing, and what the dialogs do when confirmed (open/save, feature edit, enzyme selection and digestion). The menu test only starts the handlers.
 
+### Clean-up and packaging
+- **Package renamed** from `src` to `dnapy`, and the data moved inside it (`icon/` is now `dnapy/data/icons/`, the files of `resources/` are in `dnapy/data/`, the Python parsers that were in `src/resources/` are `dnapy/parsers/`). The program finds them relative to the package, not to the working directory (the enzyme list used to be opened as `resources/emboss_e.txt`, which only worked when started from the repository root).
+- **`pyproject.toml`** replaces the broken `setup.py`. `pip install .` builds and installs the package with its dependencies (wxPython, pycairo, PyPubSub), including the data files and the settings, and creates the `dnapy` command (a GUI script, so there is no console window on Windows). The version is read from `dnapy.__version__` (now 0.2.0). A built wheel was installed into an empty folder and started from there to check that nothing depends on the repository. `tests/test_data_files.py` checks that every file in the data folders is covered by the patterns in `pyproject.toml`.
+- **DNA ladders** that a user adds are now saved in `~/.dnapy/dnaLadders.lst` (new module `ladders.py`, with tests) instead of being appended to the file in the program folder, which would fail in an installed program.
+- **Removed:** `src/other/` (the unused legacy code: `seqfiles*.py`, `CWdraw.py`, `wsvg.py`), the unused `english` and `errors` files, the old Python-syntax `settings` file, and the outdated `resources/Screenshot.png`. `colcol.py` (colors), which was in `other/`, is now `dnapy/gui/colcol.py`.
+- **Debug output:** the `print` calls in the core were replaced by `logging` (loggers named after the modules, for example `dnapy.genbank`); `dnapy.gui.main.main()` shows messages of level INFO and higher on the console. The leftover debugging prints (`'keypress'`, `'filever index'`, ...) are gone. Choosing a file that is not a GenBank file now shows a message box, and `.gbk` files are opened too.
+
 ### Configuration
 Settings are read from TOML files by `src/settings.py` (no code is executed, no wxPython needed):
 - `src/defaults/settings.toml` holds the defaults: main window size, the folder where file dialogs start (empty means the current folder), the named colors, and which color each GenBank feature type gets (keys like `"-35_signal"` and `"5'UTR"` are written as they appear in GenBank files).
@@ -118,7 +124,6 @@ Settings are read from TOML files by `src/settings.py` (no code is executed, no 
 2. **Plasmid map export is missing:** File > Export plasmid map calls `drawPlasmid.exportMapAs`, which does not exist (the menu test cancels the dialog, so it did not notice). Implement the SVG export, for example by drawing the map on a `cairo.SVGSurface`, and add a test that exports to a temporary file.
 3. **Try the GUI by hand and fix what breaks:** mouse selection and clicking on features, keyboard input, menus, dialogs (open/save, feature edit, enzyme selection and digestion), undo/redo. Replace the deprecated `wx.EVT_TOOL(...)`/`wx.EVT_*` calls with `Bind`, and check wx calls for float vs int arguments. `open_file` splits the file name on `.` and fails for names with several dots.
 4. **Extend the GUI tests**: smoke tests exist for the editor, plasmid view, feature list and main window. Missing: the other dialogs and panels, and simulated mouse and keyboard input.
-5. **Packaging:** fix `setup.py` (it reads a missing `HISTORY.md` and has a wrong entry point) and add a requirements file, so that the program can be installed with pip instead of being started with `python -m src.gui.main` from the repository folder.
-6. **Large sequences in the editor.** The editor keeps one bitmap as tall as the whole sequence (about 95 pixels per line), so memory use and bitmap size limits will be a problem for sequences of tens or hundreds of kilobases. Draw only the visible part instead. The cursor also does not scroll into view yet when it moves with the keyboard.
-7. **Clean up** `src/other/` (unused, partly broken legacy code), the unused `src/defaults/english` and `errors` files, the leftover debug `print` calls (for example in `peptide_localizer.py` and `Undo`), and the `/home/martin/...` default path in `src/defaults/settings`.
-8. Longer term: the features listed as not implemented in the README (ab1 trace analysis, codon optimization, NCBI fetch, primer design, PCR simulation, alignment).
+5. **Large sequences in the editor.** The editor keeps one bitmap as tall as the whole sequence (about 95 pixels per line), so memory use and bitmap size limits will be a problem for sequences of tens or hundreds of kilobases. Draw only the visible part instead. The cursor also does not scroll into view yet when it moves with the keyboard.
+6. **Leftovers:** the code in `dnapy/external/` for the features that are not implemented has never been run on Python 3, and the GUI modules still contain a lot of commented-out code.
+7. Longer term: the features listed as not implemented in the README (ab1 trace analysis, codon optimization, NCBI fetch, primer design, PCR simulation, alignment).

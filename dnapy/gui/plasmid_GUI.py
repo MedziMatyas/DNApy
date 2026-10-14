@@ -56,7 +56,7 @@ from .base_class import DNApyBaseDrawingClass
 from .base_class import DNApyBaseClass
 from . import featureedit_GUI
 
-from ..other import colcol
+from . import colcol
 
 import hashlib
 

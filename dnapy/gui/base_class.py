@@ -33,7 +33,7 @@
 import wx
 import os, sys
 import math
-from ..other import colcol
+from . import colcol
 
 
 

@@ -15,8 +15,8 @@ try:
 except ImportError:
     cairo = None
 
-from src import dna, genbank
-from src.gui.state import EditorState
+from dnapy import dna, genbank
+from dnapy.gui.state import EditorState
 
 DATA = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data', 'test_plasmid.gb')
 
@@ -50,14 +50,14 @@ class GuiTestCase(unittest.TestCase):
         self.frame = wxapp.wx.Frame(None, size=(900, 700))
         self.addCleanup(self.frame.Destroy)
         # panels of earlier tests are destroyed but would still receive the update messages
-        from src.gui.compat import pub
+        from dnapy.gui.compat import pub
         pub.unsubAll()
         self.addCleanup(pub.unsubAll)
 
 
 class TestDnaEditor(GuiTestCase):
     def make_editor(self):
-        from src.gui import dnaEditorCairo_GUI
+        from dnapy.gui import dnaEditorCairo_GUI
         wx = wxapp.wx
         scroll = wx.ScrolledWindow(self.frame, wx.ID_ANY)
         scroll.SetScrollRate(1, 15)  # as in the main window, which makes the window scrollable
@@ -217,7 +217,7 @@ class TestDnaEditor(GuiTestCase):
 
 class TestPlasmidView(GuiTestCase):
     def test_draws_the_plasmid(self):
-        from src.gui import plasmid_GUI
+        from dnapy.gui import plasmid_GUI
         view = plasmid_GUI.PlasmidView2(self.frame, -1, self.state)
         self.frame.Show()
         view.update_ownUI()
@@ -226,14 +226,14 @@ class TestPlasmidView(GuiTestCase):
 
 class TestFeatureList(GuiTestCase):
     def test_builds_and_updates(self):
-        from src.gui import featurelist_GUI
+        from dnapy.gui import featurelist_GUI
         panel = featurelist_GUI.FeatureList(self.frame, -1, self.state)
         panel.update_ownUI()
 
 
 class TestMainWindow(GuiTestCase):
     def test_main_window_opens_with_a_file(self):
-        from src.gui import main
+        from dnapy.gui import main
         window = main.DNApy(None, -1, 'DNApy')
         self.addCleanup(window.Destroy)
         window.state.open(genbank.gbobject(DATA))
@@ -248,7 +248,7 @@ class TestSharedState(GuiTestCase):
     """The panels get their state handed to them, there are no global variables."""
 
     def test_two_editors_with_their_own_state_do_not_interfere(self):
-        from src.gui import dnaEditorCairo_GUI
+        from dnapy.gui import dnaEditorCairo_GUI
         wx = wxapp.wx
         other = EditorState(genbank.gbobject())
         other.gb.Paste(1, 'GGGGCCCC')
@@ -268,7 +268,7 @@ class TestSharedState(GuiTestCase):
         self.assertEqual(other.dna_selection, (1, -1, -1))
 
     def test_the_genbank_module_holds_no_gui_state(self):
-        from src.gui import main
+        from dnapy.gui import main
         window = main.DNApy(None, -1, 'DNApy')
         self.addCleanup(window.Destroy)
         window.state.open(genbank.gbobject(DATA))
@@ -286,7 +286,7 @@ class TestSharedState(GuiTestCase):
                           self.state.cursor_position, self.state.search_hits), ((1, -1, -1), False, 1, []))
 
     def test_dialogs_use_the_state(self):
-        from src.gui import featureedit_GUI, enzyme_GUI
+        from dnapy.gui import featureedit_GUI, enzyme_GUI
         self.state.feature_selection = 0
         dialogs = [featureedit_GUI.FeatureEditDialog(None, 'Edit Feature', self.state),
                    enzyme_GUI.EnzymeSelectorDialog(None, 'Enzyme Selector', self.state),
@@ -300,7 +300,7 @@ class TestUserSettings(GuiTestCase):
 
     def use_settings(self, text):
         from unittest import mock
-        from src import settings
+        from dnapy import settings
         folder = tempfile.TemporaryDirectory()
         self.addCleanup(folder.cleanup)
         path = os.path.join(folder.name, 'user.toml')
@@ -311,14 +311,14 @@ class TestUserSettings(GuiTestCase):
         self.addCleanup(patcher.stop)
 
     def test_window_size(self):
-        from src.gui import main
+        from dnapy.gui import main
         self.use_settings('[window]\nsize = [900, 500]\n')
         window = main.DNApy(None, -1, 'DNApy')
         self.addCleanup(window.Destroy)
         self.assertEqual(tuple(window.GetSize()), (900, 500))
 
     def test_feature_colour_in_the_editor(self):
-        from src.gui import dnaEditorCairo_GUI
+        from dnapy.gui import dnaEditorCairo_GUI
         wx = wxapp.wx
 
         def count_cds_bar_pixels(colour):
@@ -369,7 +369,7 @@ class TestMenuItems(GuiTestCase):
         import subprocess
         import sys
         from unittest import mock
-        from src.gui import main
+        from dnapy.gui import main
         wx = wxapp.wx
 
         # File > Save writes to the path of the loaded file, so work on a copy of the test file

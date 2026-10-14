@@ -300,7 +300,6 @@ def split_complementary(in_col):
 	# Rotation by 90 degrees
 	angle = 150/360.0
 	h_list = [(h+ang) % 1 for ang in (-angle, angle)]
-	print(h)
 	analagous = [[int(round(x*255)) for x in colorsys.hls_to_rgb(h, l, s)] for h in h_list] # H'LS -> new RGB
 
 	#add all the colors together
@@ -387,7 +386,6 @@ def square(in_col):
 	# Rotation by 90 degrees
 	angle = 90/360.0
 	h_list = [(h+ang) % 1 for ang in (-angle, angle, angle*2)]
-	print(h)
 	analagous = [[int(round(x*255)) for x in colorsys.hls_to_rgb(h, l, s)] for h in h_list] # H'LS -> new RGB
 
 	#add all the colors together
@@ -430,7 +428,6 @@ def tetradic(in_col):
 	# Rotation by 90 degrees
 	angle = 30/360.0
 	h_list = [(h+ang) % 1 for ang in (-angle*2, angle*4, angle*6)]
-	print(h)
 	analagous = [[int(round(x*255)) for x in colorsys.hls_to_rgb(h, l, s)] for h in h_list] # H'LS -> new RGB
 
 	#add all the colors together

@@ -1,12 +1,12 @@
 """
 Settings of DNApy, read from TOML files.
 
-The defaults are in src/defaults/settings.toml. A user can change them by writing the entries to change into
+The defaults are in dnapy/defaults/settings.toml. A user can change them by writing the entries to change into
 their own file, either ~/.dnapy/settings.toml or the file named by the environment variable DNAPY_SETTINGS.
 The entries of the user file replace the default ones, everything else keeps its default value.
 
 Usage:
-    from src import settings
+    from dnapy import settings
     settings.get().window_size
     settings.get().feature_colour('CDS')['fw']
 
@@ -18,10 +18,10 @@ import re
 import tomllib
 from dataclasses import dataclass, field
 
-from . import DEFAULT_SETTINGS_DIR, ICONS_DIR
+from . import DEFAULT_SETTINGS_DIR, ICONS_DIR, USER_DIR
 
 DEFAULT_FILE = os.path.join(DEFAULT_SETTINGS_DIR, 'settings.toml')
-USER_FILE = os.path.join(os.path.expanduser('~'), '.dnapy', 'settings.toml')
+USER_FILE = os.path.join(USER_DIR, 'settings.toml')
 ENVIRONMENT_VARIABLE = 'DNAPY_SETTINGS'
 
 _HEX_COLOUR = re.compile(r'^#[0-9a-fA-F]{6}$')

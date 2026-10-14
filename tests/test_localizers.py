@@ -2,8 +2,8 @@ import contextlib
 import io
 import unittest
 
-from src import oligo_localizer, peptide_localizer
-from src.resources import fasta
+from dnapy import oligo_localizer, peptide_localizer
+from dnapy.parsers import fasta
 
 
 class TestOligoLocalizer(unittest.TestCase):

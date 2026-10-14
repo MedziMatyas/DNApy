@@ -1,7 +1,7 @@
 import unittest
 
-from src import dna
-from src.mixed_base_codons import AmbigousCodon
+from dnapy import dna
+from dnapy.mixed_base_codons import AmbigousCodon
 
 
 def encoded_amino_acids(triplet):

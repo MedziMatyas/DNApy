@@ -1,6 +1,6 @@
 import unittest
 
-from src import dna, protein
+from dnapy import dna, protein
 
 
 class TestProtein(unittest.TestCase):

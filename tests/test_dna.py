@@ -2,7 +2,7 @@ import os
 import tempfile
 import unittest
 
-from src import dna
+from dnapy import dna
 
 
 class TestBasicDnaFunctions(unittest.TestCase):

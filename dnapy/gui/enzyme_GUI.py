@@ -34,8 +34,13 @@ import wx
 import re
 import string
 from .. import genbank
+from .. import ladders as dna_ladders
+from ..enzyme import commercial_enzyme_names
 import math
+import logging
 import collections
+
+log = logging.getLogger(__name__)
 
 
 
@@ -201,14 +206,12 @@ class EnzymeSelector(DNApyBaseClass):
 			enzymes2show = self.findCutters(2)
 		elif n == "commercial":
 			# show commercial
-			with open ("resources/commercialEnzymes.lst", "r") as myfile:
-				data=myfile.read().splitlines()
-				# check if we know this enzyme
-				for e in data:
-					if e in self.enzymeClass.enzymeObj:
-						enzymes2show[e] = self.enzymeClass.enzymeObj[e]
+			# check if we know this enzyme
+			for e in commercial_enzyme_names():
+				if e in self.enzymeClass.enzymeObj:
+					enzymes2show[e] = self.enzymeClass.enzymeObj[e]
 		else:
-			print("what selection?")
+			log.error("Unknown enzyme selection: %s", n)
 	
 		# clear list first
 		self.lb.Clear()	
@@ -860,30 +863,9 @@ class EnzymeDigestion(DNApyBaseClass):
 		return wantedLadder
 	
 	def loadLadders(self):
-		Ladders  = []
+		'''All the ladders: the ones that come with the program and the ones the user added'''
+		return dna_ladders.load()
 
-		# open the dna ladder file
-		with open ("resources/dnaLadders.lst", "r") as myfile:
-				data=myfile.read().splitlines()
-		
-		# generate a list of ladders by splitting the line
-		for line in data:
-			item = line.split(",")
-			
-			newline = []
-			# loop to make integers out of strings if possible
-			for i in item:
-				try:
-					i = int(i)
-				except ValueError:
-					i = i
-				newline.append(i)
-			Ladders.append(newline)
-		
-
-		
-		return Ladders
-	
 	def reloadLadders(self):
 		self.ladders = 	self.loadLadders()
 		selectableLadders = []
@@ -901,18 +883,9 @@ class EnzymeDigestion(DNApyBaseClass):
 		res = customLadderDi.ShowModal()
 		if res == wx.ID_OK:
 			ladder = customLadderDi.returnLadder()
-			# now save the ladder to the file and reload the ladders:
-			strLadder = ''						# string to save to file
-			for i in ladder:
-				# first item does not need a komma
-				if len(strLadder) < 1:
-					strLadder = "\n%s" % (i)
-				else:
-					strLadder = "%s,%s" % (strLadder, i)
-			# save to file
-			with open("resources/dnaLadders.lst", "a") as myfile:
-				myfile.write(strLadder)
-			
+			# now save the ladder in the file of the user and reload the ladders:
+			dna_ladders.add(ladder)
+
 			# reload ladders for selection
 			self.reloadLadders()
 			
@@ -1149,7 +1122,7 @@ class AddLadder(DNApyBaseClass):
 				self.resort2list()
 			self.sizeInput.SetValue('')
 		except ValueError:
-			print("no integer")
+			log.info("The fragment size has to be an integer")
 			self.sizeInput.SetValue('')
 			
 		

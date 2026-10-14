@@ -76,7 +76,7 @@ class create(DNApyBaseClass):
 #####################################################################
 
 	def OnKeyPress(self, evt):
-		print('keypress')
+		pass
 
 	def clear(self):
 		'''Remove any text already in the Output Panel'''

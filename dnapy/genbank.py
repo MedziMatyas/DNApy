@@ -49,6 +49,7 @@ from . import oligo_localizer
 from . import peptide_localizer
 import re
 import sys
+import logging
 try:
 	import wx	# for richCopy (optional, only needed for the GUI clipboard)
 except ImportError:
@@ -56,6 +57,8 @@ except ImportError:
 import json	# for richCopy
 
 from . import enzyme
+
+log = logging.getLogger(__name__)
 
 
 #the feature class is not currently used. 
@@ -496,7 +499,7 @@ class gbobject(object):
 					feature['qualifiers'].append(qualifier)
 
 				else:
-					print(('error parsing feature line', line))	
+					log.warning('error parsing feature line: %s', line)
 
 
 			self.gbfile['features'].append(copy.deepcopy(feature)) #add feature to the global data structure
@@ -637,7 +640,7 @@ class gbobject(object):
 	def get_feature_index(self, feature):
 		'''Get the index of a feature in the self.gbfile data structure'''
 		if len(self.gbfile['features']) == 0:
-			print('Error, no index found')
+			log.error('Error, no index found')
 			return False
 		else:
 			for i in range(len(self.gbfile['features'])):
@@ -646,7 +649,7 @@ class gbobject(object):
 				if self.gbfile['features'][i]['qualifiers'][0] != feature['qualifiers'][0]: continue
 				if self.gbfile['features'][i]['complement'] == feature['complement']: #it is == here
 					return i
-			print('Error, no index found')
+			log.error('Error, no index found')
 			return False		
 
 
@@ -657,7 +660,7 @@ class gbobject(object):
 		try:
 			return self.gbfile['features'][index]['qualifiers'][0].split('=')[1]
 		except:
-			print('This is not a valid index')
+			log.error('This is not a valid index')
 			return False
 
 
@@ -666,14 +669,14 @@ class gbobject(object):
 		try:
 			return self.gbfile['features'][index]['key']
 		except:
-			print('This is not a valid index')
+			log.error('This is not a valid index')
 			return False
 
 	def set_feature_type(self, feature, newkey):
 		'''Changes feature type of the feature passed to method'''
 		index = self.get_feature_index(feature)
 		if index is False:
-			print('Error, no index found')
+			log.error('Error, no index found')
 		else:
 			self.gbfile['features'][index]['key'] = newkey
 			self.add_file_version()
@@ -683,14 +686,14 @@ class gbobject(object):
 		try:
 			return self.gbfile['features'][index]['complement']
 		except:
-			print('This is not a valid index')
+			log.error('This is not a valid index')
 			return False
 
 	def set_feature_complement(self, feature, complement):
 		'''Changes whether a feature is on leading or complement DNA strand'''
 		index = self.get_feature_index(feature)
 		if index is False:
-			print('Error, no index found')
+			log.error('Error, no index found')
 		else:
 			self.gbfile['features'][index]['complement'] = complement
 			self.add_file_version() 
@@ -701,14 +704,14 @@ class gbobject(object):
 		try:
 			return self.gbfile['features'][index]['join']
 		except:
-			print('This is not a valid index')
+			log.error('This is not a valid index')
 			return False
 
 	def set_feature_join(self, feature, join):
 		'''Change whether a feature with multiple locations should be joined or not'''
 		index = self.get_feature_index(feature)
 		if index is False:
-			print('Error, no index found')
+			log.error('Error, no index found')
 		else:
 			self.gbfile['features'][index]['join'] = join 
 			self.add_file_version()
@@ -719,14 +722,14 @@ class gbobject(object):
 		try:
 			return self.gbfile['features'][index]['order']
 		except:
-			print('This is not a valid index')
+			log.error('This is not a valid index')
 			return False
 
 	def set_feature_order(self, feature, order):
 		'''Change whether a feature with multiple locations should be indicated as having the specified order or not'''
 		index = self.get_feature_index(feature)
 		if index is False:
-			print('Error, no index found')
+			log.error('Error, no index found')
 		else:
 			self.gbfile['features'][index]['order'] = order 
 			self.add_file_version()
@@ -737,14 +740,14 @@ class gbobject(object):
 		try:
 			return self.gbfile['features'][index]['location']
 		except:
-			print('This is not a valid index')
+			log.error('This is not a valid index')
 			return False
 
 	def set_feature_location(self, feature, newlocation):
 		'''Sets all location for a feature'''
 		index = self.get_feature_index(feature)
 		if index is False:
-			print('Error, no index found')
+			log.error('Error, no index found')
 		else:
 			self.gbfile['features'][index]['location'] = newlocation
 			self.add_file_version()
@@ -765,7 +768,7 @@ class gbobject(object):
 		'''
 		index = self.get_feature_index(feature)
 		if index is False:
-			print('Error, no index found')
+			log.error('Error, no index found')
 		else:
 			locations = self.gbfile['features'][index]['location']
 			start = locations[0].split('..')[0]
@@ -1084,37 +1087,37 @@ class gbobject(object):
 		if key in self.featuretypes: 
 			feature['key'] = key
 		else: 
-			print('Key error')
+			log.error('Key error')
 			return False
 
 		if type(qualifiers) == list: 
 			feature['qualifiers'] = qualifiers
 		else:
-			print('Qualifiers error')
+			log.error('Qualifiers error')
 			return  False
 		
 		if type(location) == list:	#need more checks here to make sure the numbers are ok
 			feature['location'] = location
 		else:
-			print('Location error')
+			log.error('Location error')
 			return False
 
 		if complement == True or complement == False:
 			feature['complement'] = complement
 		else:
-			print('Complement error')
+			log.error('Complement error')
 			return False
 
 		if join == True or join == False:
 			feature['join'] = join
 		else: 
-			print('Join error')
+			log.error('Join error')
 			return False
 		
 		if order == True or order == False:
 			feature['order'] = order
 		else:
-			print('Order error')
+			log.error('Order error')
 			return False
 		
 		if self.gbfile['features'] == None:
@@ -1131,7 +1134,7 @@ class gbobject(object):
 		position = self.get_feature_index(feature)
 		
 		if position is False:
-			print('feature identify error')
+			log.error('feature identify error')
 		else:
 			del self.gbfile['features'][position]
 			
@@ -1155,7 +1158,7 @@ class gbobject(object):
 		'''Adds qualifier tag to existing feature'''
 		index = self.get_feature_index(feature)
 		if index is False:
-			print('Error, no index found')
+			log.error('Error, no index found')
 		else:
 			self.gbfile['features'][index]['qualifiers'].append(newqualifier)  #change append to sth that works for dicts
 		self.add_file_version()		
@@ -1165,7 +1168,7 @@ class gbobject(object):
 		'''Removes a qualifier tag from an existing feature'''
 		index = self.get_feature_index(feature)
 		if index is False:
-			print('Error, no index found')
+			log.error('Error, no index found')
 		else:
 			del self.gbfile['features'][index]['qualifiers'][number]
 		self.add_file_version()
@@ -1175,7 +1178,7 @@ class gbobject(object):
 		'''Moves a qualifier one step up or down the list (up defined as closer to the beginning)'''
 		index = self.get_feature_index(feature)
 		if index is False:
-			print('Error, no index found')
+			log.error('Error, no index found')
 		else:
 			if upordown == 'u' and number != 0:
 				self.gbfile['features'][index]['qualifiers'][number-1], self.gbfile['features'][index]['qualifiers'][number] = self.gbfile['features'][index]['qualifiers'][number], self.gbfile['features'][index]['qualifiers'][number-1]
@@ -1226,7 +1229,7 @@ class gbobject(object):
 			finish = finish + changenumber
 
 		else:
-			print('Error, wrong option in add_or_subtract_to_locations')	
+			log.error('Error, wrong option in add_or_subtract_to_locations')
 
 		#now add brackets back
 		if len(brackets) == 0: 
@@ -1339,7 +1342,7 @@ indeces >-1 are feature indeces'''
 		assert type(searchRC) == bool, 'Error, searchRC must be True or False'
 		#empty search string
 		if searchstring=='':
-			print('The searchstring is missing, please check your input')
+			log.warning('The searchstring is missing, please check your input')
 			return []
 
 		#searching for a position (by number)
@@ -1372,7 +1375,7 @@ indeces >-1 are feature indeces'''
 						if start<=searchstring<=finish: #if the chosen number is in the range of the current location
 							return [(searchstring,searchstring)]
 							break
-					print('No matches were found')	
+					log.info('No matches were found')
 					return []
 				
 				elif complement == True:
@@ -1437,7 +1440,7 @@ indeces >-1 are feature indeces'''
 
 		#empty search string
 		if searchstring=='':
-			print('The searchstring is missing, please check your input')
+			log.warning('The searchstring is missing, please check your input')
 			return []
 
 		#searching for a position (by number)
@@ -1508,7 +1511,7 @@ indeces >-1 are feature indeces'''
 		assert type(searchstring) == str or type(searchstring) == str or type(searchstring) == int, 'Error, search takes a string of DNA or a string of numbers as input.'
 
 		if searchstring=='':
-			print('The searchstring is missing, please check your input')
+			log.warning('The searchstring is missing, please check your input')
 			return []
 		elif type(searchstring) is int:
 			#assert that the integer is within the number of features
@@ -1525,7 +1528,7 @@ indeces >-1 are feature indeces'''
 						hits.append(features[i])
 
 		if len(hits) == 0:
-			print('Sorry, no matches were found')
+			log.info('Sorry, no matches were found')
 			return []
 		else:
 			for feature in hits:
@@ -1622,11 +1625,11 @@ indeces >-1 are feature indeces'''
 				if complement is False or mutationframe == -1:
 					self.changegbsequence(global_position[0][0], global_position[0][1], 'r', codon)
 					if silent is False: self.add_feature(key='modified_base', qualifiers=['/note="%s%s%s(%s)"' % (positionAA, position, trailingAA, codon)], location=['%s..%s' % (global_position[0][0], global_position[0][1])], complement=False, join=False, order=False)
-					print(('Mutation %s%s%s(%s) performed.' % (positionAA, position, trailingAA, codon)))
+					log.info('Mutation %s%s%s(%s) performed.' % (positionAA, position, trailingAA, codon))
 				elif complement is True:
 					self.changegbsequence(global_position[0][0], global_position[0][1], 'r', dna.RC(codon))
 					if silent is False: self.add_feature(key='modified_base', qualifiers=['/note="%s%s%s(%s)"' % (positionAA, position, trailingAA, codon)], location=['%s..%s' % (global_position[0][0], global_position[0][1])], complement=True, join=False, order=False)
-					print(('Mutation %s%s%s(%s) performed.' % (positionAA, position, trailingAA, codon)))
+					log.info('Mutation %s%s%s(%s) performed.' % (positionAA, position, trailingAA, codon))
 				else:
 					raise ValueError
 
@@ -1677,11 +1680,11 @@ indeces >-1 are feature indeces'''
 				if complement is False or mutationframe == -1:
 					self.changegbsequence(global_position[0][0], global_position[0][1], 'r', trailingnucleotide)
 					if silent is False: self.add_feature(key='modified_base', qualifiers=['/note=%s%s%s' % (positionnucleotide, position, trailingnucleotide)], location=['%s..%s' % (global_position[0][0], global_position[0][1])], complement=False, join=False, order=False)
-					print(('Mutation %s%s%s performed.' % (positionnucleotide, position, trailingnucleotide)))
+					log.info('Mutation %s%s%s performed.' % (positionnucleotide, position, trailingnucleotide))
 				elif complement is True:
 					self.changegbsequence(global_position[0][0], global_position[0][1], 'r', dna.RC(trailingnucleotide))
 					if silent is False: self.add_feature(key='modified_base', qualifiers=['/note=%s%s%s' % (positionnucleotide, position, trailingnucleotide)], location=['%s..%s' % (global_position[0][0], global_position[0][1])], complement=True, join=False, order=False)
-					print(('Mutation %s%s%s performed.' % (positionnucleotide, position, trailingnucleotide)))
+					log.info('Mutation %s%s%s performed.' % (positionnucleotide, position, trailingnucleotide))
 				else:
 					raise ValueError
 
@@ -1856,7 +1859,7 @@ indeces >-1 are feature indeces'''
 					self.remove_location(index, number)
 					del deletionlist[-1]
 		else:
-			print(('%s is not a valid argument for changetype' % changetype))
+			log.error('%s is not a valid argument for changetype' % changetype)
 	
 	
 		# update restriction enzymes:

@@ -3,7 +3,7 @@ import io
 import os
 import unittest
 
-from src import enzyme, genbank
+from dnapy import enzyme, genbank
 
 DATA = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data', 'test_plasmid.gb')
 

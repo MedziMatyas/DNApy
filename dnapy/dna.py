@@ -29,11 +29,14 @@
 #Get source code at: https://github.com/mengqvist/DNApy
 #
 
-from .resources import fasta
+from .parsers import fasta
 import string
 import random
 from . import protein # for conversion from dna to amino acid name
 from functools import reduce
+import logging
+
+log = logging.getLogger(__name__)
 
 
 ############# Basic DNA functions #####################
@@ -53,7 +56,7 @@ def CleanDNA(DNA, ambiguous=False, silent=True):
 	for char in DNA:
 		if (char in string.digits) or (char in string.whitespace) or char==('/'or'\\'or ' ' or '  ') or (char.upper() not in bases):
 			if silent == False:
-				print(('Character "%s" is not a valid DNA character and was deleted' % char))
+				log.warning('Character "%s" is not a valid DNA character and was deleted', char)
 		else:
 			cleaned_seq += char
 	return cleaned_seq

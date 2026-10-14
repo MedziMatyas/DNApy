@@ -47,7 +47,7 @@ import string
 
 import copy
 
-from ..other import colcol
+from . import colcol
 from .. import genbank
 from .base_class import DNApyBaseClass
 from . import featureedit_GUI

@@ -45,8 +45,18 @@ import os
 import re
 import collections
 
-# the REBASE enzyme list shipped in the top-level resources folder
-ENZYME_FILE = os.path.join(os.path.dirname(os.path.dirname(os.path.realpath(__file__))), 'resources', 'emboss_e.txt')
+from . import DATA_DIR
+
+# the REBASE enzyme list and the names of the commercially available enzymes, both part of the package
+ENZYME_FILE = os.path.join(DATA_DIR, 'emboss_e.txt')
+COMMERCIAL_FILE = os.path.join(DATA_DIR, 'commercialEnzymes.lst')
+
+
+def commercial_enzyme_names():
+	'''Names of the enzymes that can be bought, from the list in the data folder.'''
+	with open(COMMERCIAL_FILE) as f:
+		return f.read().splitlines()
+
 
 
 
@@ -144,7 +154,7 @@ class initRestriction(object):
 		self.allEnzymes			= []
 
 
-		# for this we have enzymes in folder /resources
+		# the enzymes are in the data folder of the package
 		with open(ENZYME_FILE) as f:
 			for line in f:	
 				# each line is one enzyme, except the header

@@ -45,6 +45,7 @@ import wx.stc
 
 from .. import pyperclip
 import copy
+import logging
 
 from . import output
 from .. import dna
@@ -60,10 +61,12 @@ from .monolayout import MonoLayout, select_monospace_font # for the text layout
 import math
 
 # for color function
-from ..other import colcol
+from . import colcol
 
 # for hashing the enzymes to detect change in enzymes
 import hashlib
+
+log = logging.getLogger(__name__)
 
 
 
@@ -1100,7 +1103,7 @@ class TextEdit(DNApyBaseDrawingClass):
 			self.update_globalUI()
 
 		elif key == 315 and shift == True: #up + select
-			print("select with keyboard")
+			log.info("Selecting with Shift+Up and Shift+Down is not implemented yet")
 
 		elif key == 317 and shift == False: #down
 			self.moveCursor(1, "down")
@@ -1108,7 +1111,7 @@ class TextEdit(DNApyBaseDrawingClass):
 			self.update_globalUI()
 
 		elif key == 317 and shift == True: #down + select
-			print("select with keyboard")
+			log.info("Selecting with Shift+Up and Shift+Down is not implemented yet")
 
 		#self.set_dna_selection() #update the varable keeping track of DNA selection
 

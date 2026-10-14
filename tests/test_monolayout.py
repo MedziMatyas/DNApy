@@ -1,6 +1,6 @@
 import unittest
 
-from src.gui.monolayout import MonoLayout
+from dnapy.gui.monolayout import MonoLayout
 
 
 def layout(length=25, width=100):

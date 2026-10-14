@@ -4,8 +4,8 @@ import tempfile
 import unittest
 from unittest import mock
 
-from src import settings
-from src.settings import SettingsError
+from dnapy import settings
+from dnapy.settings import SettingsError
 
 
 class SettingsFileCase(unittest.TestCase):
@@ -68,7 +68,7 @@ class TestDefaults(SettingsFileCase):
         self.assertEqual(s.feature_colour('files')['color'], 'grey')
 
     def test_the_colours_of_all_the_old_python_settings_were_kept(self):
-        # the number of feature types that were assigned a color in the old src/defaults/settings file
+        # the number of feature types that were assigned a color in the old Python settings file (src/defaults/settings)
         self.assertEqual(len(settings.load().feature_colours), 63)
 
     def test_icons_exist(self):
