@@ -54,12 +54,12 @@ from .. import enzyme
 from .base_class import DNApyBaseClass
 
 #GUI components
-#import dnaeditor_GUI
 from . import dnaEditorCairo_GUI
 from . import featureedit_GUI
 from . import featurelist_GUI
 from . import plasmid_GUI
 from . import genbank_GUI
+from .state import EditorState
 from . import enzyme_GUI
 from . import mixed_base_codons_GUI
 #import mixed_base_codons_GUI
@@ -82,8 +82,9 @@ class DNAedit(DNApyBaseClass):
 	This class is intended to glue together the dnaedit, featurelist and plasmid view panels to one UI.
 	It also sets the relevant update methods.
 	'''
-	def __init__(self, parent, id):
+	def __init__(self, parent, id, state):
 		wx.Panel.__init__(self, parent)
+		self.state = state
 		splitter0 = wx.SplitterWindow(self, id=0, style=wx.SP_3D)
 		splitter1 = wx.SplitterWindow(splitter0, id=0, style=wx.SP_3D)
 
@@ -91,7 +92,7 @@ class DNAedit(DNApyBaseClass):
 
 
 
-		self.dnaview = dnaEditorCairo_GUI.TextEdit(self.scroll, id=wx.ID_ANY) # This generates 8 OnSize draw events
+		self.dnaview = dnaEditorCairo_GUI.TextEdit(self.scroll, wx.ID_ANY, self.state) # This generates 8 OnSize draw events
 
 		self.scroll.SetScrollbars(0,10, 1, 10)
 		self.scroll.SetScrollRate( 1, 15 )      # Pixels per scroll increment
@@ -101,7 +102,7 @@ class DNAedit(DNApyBaseClass):
 		# the editor to the visible area again.
 
 		self.parent = parent
-		self.plasmidview = plasmid_GUI.PlasmidView2(splitter0, -1)
+		self.plasmidview = plasmid_GUI.PlasmidView2(splitter0, -1, self.state)
 				
 
 		splitter0.SplitVertically( self.scroll, self.plasmidview, sashPosition=int(settings.get().window_size[0]/1.75))
@@ -134,7 +135,6 @@ class DNAedit(DNApyBaseClass):
 		When message is sent through the publisher system,
 		check who sent it and then update accordingly.
 		'''
-		#genbank.restriction_sites =  genbank.restrictionEnzymes.getEnzymes(genbank.restriction_sites)
 
 
 		if text == "Plasmid view says update!":
@@ -158,6 +158,7 @@ class DNApy(wx.Frame):
 
 	def __init__(self, parent, id, title):
 		wx.Frame.__init__(self, parent, id, title, size=settings.get().window_size) #size of program
+		self.state = EditorState() # everything that the panels share: the open file, the selections, ...
 		ID=wx.NewIdRef()
 
 		#self.DNApy = wx.Notebook(self, ID, style=0) ######create blank notebook
@@ -180,21 +181,10 @@ class DNApy(wx.Frame):
 		self.new_file(None) #create new genbank file
 
 
-		genbank.dna_selection 		= (1, -1, -1)	 	# variable for storing current DNA selection
-		genbank.cursor_position 	= 1 			# to save cursor position
-
-
-		genbank.feature_selection 	= False #variable for storing current feature selection
-		genbank.search_hits 		= []
-		genbank.gb.fileName 		= ''
+		self.state.gb.fileName 		= ''
 	
-		# initialise the retriction enzyme:
-		#genbank.restrictionEnzymes 		= enzyme.initRestriction()
-		# save the selected restriktion enzymes
-		#genbank.restriction_sites 		= {} 
-
 		#build the UI using the pre-defined class
-		self.DNApy = DNAedit(self, -1)
+		self.DNApy = DNAedit(self, -1, self.state)
 
 		#bind events
 		#wx.EVT_NOTEBOOK_PAGE_CHANGED(self, ID, self.page_change)
@@ -233,9 +223,8 @@ class DNApy(wx.Frame):
 	def new_file(self, evt):
 		'''Create new gb file'''
 		if self.fileopen == False: #if no file is open, make blank gb file
-			genbank.gb = genbank.gbobject() #make new gb in panel
+			self.state.new_file() #make new gb in panel
 			
-			#print(type(genbank.restrictionEnzymes))
 
 			self.SetTitle('NewFile - DNApy')
 #			self.page_change("")
@@ -263,28 +252,28 @@ class DNApy(wx.Frame):
 		if dlg.ShowModal() == wx.ID_CANCEL:
 			return     # the user does not want to open that file!
 
-		genbank.gb.fileName = dlg.GetFilename()
+		self.state.gb.fileName = dlg.GetFilename()
 		all_path=dlg.GetPath()
 		dire=dlg.GetDirectory()
 		dlg.Destroy()
 
-		if(genbank.gb.fileName == None or genbank.gb.fileName == "" ):
+		if(self.state.gb.fileName == None or self.state.gb.fileName == "" ):
 			return 1
 
 
 
-		name, extension = os.path.splitext(genbank.gb.fileName)
+		name, extension = os.path.splitext(self.state.gb.fileName)
 		extension = extension.lstrip('.') # names can contain several dots
 		if extension.lower() == 'gb':
-			genbank.gb = genbank.gbobject(all_path) #make a genbank object and read file
+			self.state.open(genbank.gbobject(all_path)) #make a genbank object, read the file and make it the open file
 
-			self.SetTitle(genbank.gb.fileName+' - DNApy')
-			if genbank.gb.clutter == True: #if tags from ApE or Vector NTI is found in file
+			self.SetTitle(self.state.gb.fileName+' - DNApy')
+			if self.state.gb.clutter == True: #if tags from ApE or Vector NTI is found in file
 				dlg = wx.MessageDialog(self, style=wx.YES_NO|wx.CANCEL, message='This file contains tags from the Vector NTI or ApE programs. Keeping these tags may break compatibility with other software. Removing them will clean up the file, but may result in the loss of some personalized styling options when this file is viewed in Vector NTI or ApE. Do you wish to REMOVE these tags?')
 				result = dlg.ShowModal()
 				dlg.Destroy()
 				if result == wx.ID_YES: #if yes, remove clutter
-					genbank.gb.clean_clutter()
+					self.state.gb.clean_clutter()
 
 			#enable the tools
 			self.frame_1_toolbar.EnableTool(502, True)
@@ -309,7 +298,7 @@ class DNApy(wx.Frame):
 
 	def save_file(self, evt):
 		'''Function for saving file'''
-		result = genbank.gb.Save()
+		result = self.state.gb.Save()
 		if result is True:
 			pass
 		elif result is False: #if there is no pre-established file path, use "save as"
@@ -317,7 +306,7 @@ class DNApy(wx.Frame):
 
 	def save_as_file(self, evt):
 		'''Function for saving file as'''
-		filepath = genbank.gb.GetFilepath()
+		filepath = self.state.gb.GetFilepath()
 		if filepath is not None:
 			for i in range(len(filepath)): #get directory for file
 				if filepath[i] in '//\\':
@@ -335,14 +324,14 @@ class DNApy(wx.Frame):
 		if (fileName == None or fileName == ""):
 			return
 		else:
-			genbank.gb.fileName = fileName
-			if genbank.gb.fileName[-3:].lower() != '.gb': #make sure it has gb file ending
+			self.state.gb.fileName = fileName
+			if self.state.gb.fileName[-3:].lower() != '.gb': #make sure it has gb file ending
 				all_path += '.gb'
-				genbank.gb.fileName += '.gb'
+				self.state.gb.fileName += '.gb'
 			#try:
-			genbank.gb.SetFilepath(all_path)
+			self.state.gb.SetFilepath(all_path)
 			self.save_file("")
-			self.SetTitle(genbank.gb.fileName+' - DNApy')
+			self.SetTitle(self.state.gb.fileName+' - DNApy')
 			#except:
 			#	error_window(7, self)
 
@@ -406,7 +395,7 @@ class DNApy(wx.Frame):
 		'''Updates statusbar'''
 
 		
-		Position = genbank.cursor_position
+		Position = self.state.cursor_position
 		selection = self.get_dna_selection()
 	
 		# set text
@@ -416,7 +405,7 @@ class DNApy(wx.Frame):
 			
 			if length == 3:
 				# if its just one codo show full name of amino acid
-				dnaSq 			= genbank.gb.GetDNA()
+				dnaSq 			= self.state.gb.GetDNA()
 				selDNA 			= dnaSq[selection[0]-1:selection[1]]
 				AAoneLetter 	= dna.Translate(selDNA)
 				AAFull 			= dna.protein.one_to_full(AAoneLetter)
@@ -424,7 +413,7 @@ class DNApy(wx.Frame):
 
 			elif length % 3 == 0:
 				# if partable trough 3 show all amino acids that fit
-				dnaSq 			= genbank.gb.GetDNA()
+				dnaSq 			= self.state.gb.GetDNA()
 				selDNA 			= dnaSq[selection[0]-1:selection[1]]
 				fullProtein = dna.Translate(selDNA)
 				AA = " amino acid: %s" %(fullProtein)
@@ -442,7 +431,7 @@ class DNApy(wx.Frame):
 	#DNA#
 	def get_dna_selection(self):
 		'''Method for getting which DNA range is currently selected'''
-		return genbank.dna_selection
+		return self.state.dna_selection
 
 		## I should probably modify this method to broadcast by pypub
 
@@ -452,7 +441,7 @@ class DNApy(wx.Frame):
 		if len(selection) == 2:
 			a, b = selection
 			selection = (a,b,-1)
-		genbank.dna_selection = selection
+		self.state.dna_selection = selection
 
 
 		## I should probably modify this method to broadcast by pypub
@@ -460,22 +449,22 @@ class DNApy(wx.Frame):
 #	#Feature#
 #	def get_feature_selection(self):
 #		'''Get index of currently selected feature, if any'''
-#		return genbank.feature_selection #returns integer
+#		return self.state.feature_selection #returns integer
 
 
 #	def set_feature_selection(self, index):
 #		'''Set currently selected feature'''
 #		assert type(index) == int, "Error, index must be an integer."
 #		#this is currently independent from DNA selection
-#		num_features = len(genbank.gb.get_all_features()) #number of features already present
+#		num_features = len(self.state.gb.get_all_features()) #number of features already present
 #		if index == -1 and num_features == 0: #just so that it is easier to select the last feature
 #			index = 0
 #		elif index == -1 and num_features != 0: #just so that it is easier to select the last feature
 #			index = num_features-1
 
-#		genbank.feature_selection = int(copy.copy(index))
+#		self.state.feature_selection = int(copy.copy(index))
 #		#add logic to find first and last position for feature and make DNA selection match.
-#		#print('Feature "%s" selected') % (self.get_feature_label(genbank.feature_selection))
+#		#print('Feature "%s" selected') % (self.get_feature_label(self.state.feature_selection))
 
 ######### cut, paste, copy methods ########
 
@@ -680,12 +669,12 @@ Put Table here
 #####################################
 
 	def Undo(self, evt):
-		genbank.gb.Undo()
+		self.state.gb.Undo()
 		self.update_globalUI()
 
 
 	def Redo(self, evt):
-		genbank.gb.Redo()
+		self.state.gb.Redo()
 		self.update_globalUI()
 
 ######################################
@@ -696,15 +685,13 @@ Put Table here
 		Make a popup with the enzyme selection window.
 		'''
 		#launch the dialog
-		#dlg = enzyme_GUI.EnzymeSelectorDialog(None, 'Enzyme Selector', genbank.restriction_sites,genbank.restrictionEnzymes)
-		dlg = enzyme_GUI.EnzymeSelectorDialog(None, 'Enzyme Selector', genbank.gb.restrictionEnzymes)
+		dlg = enzyme_GUI.EnzymeSelectorDialog(None, 'Enzyme Selector', self.state)
 		dlg.Center()
 		res = dlg.ShowModal() #alternatively, if main window should still be accessible use dlg.Show()
 
 		# get the selected enzymes and restriction sites and save
 		if res == wx.ID_OK:
-			#genbank.restriction_sites = dlg.GetSelection()
-			genbank.gb.restrictionEnzymes.selection = dlg.GetSelection()
+			self.state.gb.restrictionEnzymes.selection = dlg.GetSelection()
 
 	
 
@@ -723,9 +710,9 @@ Put Table here
 		'''
 		Make a popup width the digested dna as a ladder
 		'''
-		if genbank.gb.gbfile["dna"]:
+		if self.state.gb.gbfile["dna"]:
 			#launch the dialog
-			dlg = enzyme_GUI.EnzymeDigestionDialog(self, 'digestion', genbank.gb.restrictionEnzymes.selection, genbank.gb.restrictionEnzymes)
+			dlg = enzyme_GUI.EnzymeDigestionDialog(self, 'digestion', self.state)
 			dlg.Center()
 			res = dlg.ShowModal() #alternatively, if main window should still be accessible use dlg.Show()
 
@@ -744,13 +731,13 @@ Put Table here
 
 	def update_ownUI(self):
 		#and now actually update the UI
-		print(('filever index', genbank.gb.get_file_version_index()))
-		if genbank.gb.get_file_version_index() <= 0: #if there are no undos available
+		print(('filever index', self.state.gb.get_file_version_index()))
+		if self.state.gb.get_file_version_index() <= 0: #if there are no undos available
 			self.frame_1_toolbar.EnableTool(513, False)
 		else:
 			self.frame_1_toolbar.EnableTool(513, True)
 
-		if genbank.gb.get_file_version_index() >= len(genbank.gb.file_versions)-1: #if there are no redos available
+		if self.state.gb.get_file_version_index() >= len(self.state.gb.file_versions)-1: #if there are no redos available
 			self.frame_1_toolbar.EnableTool(514, False)
 		else:
 			self.frame_1_toolbar.EnableTool(514, True)
@@ -768,7 +755,6 @@ Put Table here
 		I'll still put some thought into how to make it better.
 		'''
 		# update the restriction enzymes:
-		#genbank.restrictionEnzymes.reloadEnzymes()
 
 		
 		# then update
@@ -789,7 +775,7 @@ Put Table here
 #		tabtext = str(genbank.gbviewer.GetPageText(genbank.gbviewer.GetSelection()))
 		tabtext = 'Replace!'
 		self.output.write('%s | List features\n' % tabtext, 'File')
-		featurelist = genbank.gb.ListFeatures()
+		featurelist = self.state.gb.ListFeatures()
 		for feature in featurelist:
 			self.output.write('%s\n' % feature, 'Text')
 		self.outputframe.Show()
@@ -797,7 +783,7 @@ Put Table here
 	def view_genbank(self, evt):
 		'''View the genbank file as text'''
 		dlg = wx.Frame(self, id=wx.ID_ANY, title="Edit Qualifier", size=(600,600)) #make frame
-		genbankview = genbank_GUI.MyPanel(dlg, style=wx.VSCROLL|wx.HSCROLL) #put the genbank view panel inside
+		genbankview = genbank_GUI.MyPanel(dlg, self.state, style=wx.VSCROLL|wx.HSCROLL) #put the genbank view panel inside
 		genbankview.rtc.SetEditable(False)
 		sizer = wx.BoxSizer(wx.VERTICAL) #make sizer
 		sizer.Add(genbankview, proportion=-1, flag=wx.EXPAND)	#put panel in sizer
@@ -905,7 +891,7 @@ Put Table here
 		featurelist = ['Molecule']
 		try:
 			#make a list of all feature names
-			features = genbank.gb.get_all_features()
+			features = self.state.gb.get_all_features()
 			for entry in features:
 				featurelist.append(entry['qualifiers'][0].split('=')[1])
 		except:
@@ -965,15 +951,15 @@ Put Table here
 			searchstring = int(searchstring)
 
 		if searchtype == 'Nucleotide':
-			genbank.search_hits = genbank.gb.FindNucleotide(searchstring, searchframe)
+			self.state.search_hits = self.state.gb.FindNucleotide(searchstring, searchframe)
 		elif searchtype == 'Amino Acid':
-			genbank.search_hits = genbank.gb.FindAminoAcid(searchstring, searchframe)
+			self.state.search_hits = self.state.gb.FindAminoAcid(searchstring, searchframe)
 		elif searchtype == 'Feature':
-			genbank.search_hits = genbank.gb.FindFeature(searchstring)
+			self.state.search_hits = self.state.gb.FindFeature(searchstring)
 
 		#update the dna selection to the first search hit, if there is at least one.
-		if len(genbank.search_hits) > 0:
-			self.set_dna_selection(genbank.search_hits[0])
+		if len(self.state.search_hits) > 0:
+			self.set_dna_selection(self.state.search_hits[0])
 		self.update_globalUI()
 
 
@@ -981,12 +967,12 @@ Put Table here
 	def find_previous(self, evt):
 		'''Select prevous search hit'''
 		start, finish, zero = self.get_dna_selection()
-		for i in range(len(genbank.search_hits)):
-			if start < genbank.search_hits[0][0]:
-				self.set_dna_selection(genbank.search_hits[-1])
+		for i in range(len(self.state.search_hits)):
+			if start < self.state.search_hits[0][0]:
+				self.set_dna_selection(self.state.search_hits[-1])
 				break
-			elif start <= genbank.search_hits[i][0]:
-				self.set_dna_selection(genbank.search_hits[i-1])
+			elif start <= self.state.search_hits[i][0]:
+				self.set_dna_selection(self.state.search_hits[i-1])
 				break
 		self.update_globalUI()
 
@@ -994,12 +980,12 @@ Put Table here
 	def find_next(self, evt):
 		'''Select next search hit'''
 		start, finish = self.get_dna_selection()
-		for i in range(len(genbank.search_hits)):
-			if start < genbank.search_hits[i][0]:
-				self.set_dna_selection(genbank.search_hits[i])
+		for i in range(len(self.state.search_hits)):
+			if start < self.state.search_hits[i][0]:
+				self.set_dna_selection(self.state.search_hits[i])
 				break
-			elif i == len(genbank.search_hits)-1:
-				self.set_dna_selection(genbank.search_hits[0])
+			elif i == len(self.state.search_hits)-1:
+				self.set_dna_selection(self.state.search_hits[0])
 				break
 		self.update_globalUI()
 
@@ -1017,9 +1003,9 @@ Put Table here
 			mutation_list = [mutationinput]
 
 		if mutationtype == 'Nucleotide':
-			genbank.gb.mutate('D', mutationframe, mutation_list)
+			self.state.gb.mutate('D', mutationframe, mutation_list)
 		elif mutationtype == 'Amino Acid':
-			genbank.gb.mutate('A', mutationframe, mutation_list)
+			self.state.gb.mutate('A', mutationframe, mutation_list)
 
 		self.update_globalUI()
 

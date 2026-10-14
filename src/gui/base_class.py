@@ -41,8 +41,9 @@ class DNApyBaseClass(wx.Panel):
 	'''
 	This is a base class which should serve as the base for any panel used in DNApy.
 	'''
-	def __init__(self, parent, id):
+	def __init__(self, parent, id, state=None):
 		wx.Panel.__init__(self, parent)
+		self.state = state # the shared state of the window (see state.py)
 
 
 #### own UI updates ####
@@ -74,9 +75,10 @@ class DNApyBaseDrawingClass(DNApyBaseClass):
 	
 	Other code by Martin K. M. Engqvist for the DNApy project.
 	'''
-	def __init__(self, parent, id):
+	def __init__(self, parent, id, state=None):
 		wx.Panel.__init__(self, parent, id = 666)
 		self.parent = parent
+		self.state = state # the shared state of the window (see state.py)
 		
 		self.Bind(wx.EVT_PAINT, self.OnPaint)
 		self.Bind(wx.EVT_SIZE, self.OnSize)

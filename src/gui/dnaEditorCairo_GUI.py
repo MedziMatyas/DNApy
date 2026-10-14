@@ -80,14 +80,15 @@ class TextEdit(DNApyBaseDrawingClass):
 			- dna modifications (todo)
 			- primer (todo)
 	'''
-	def __init__(self, parent, id):
+	def __init__(self, parent, id, state):
 		
 		#parent
 		self.parent = parent
+		self.state = state # the shared state of the window, it has to be set before the drawing starts
 		
 		# get data
-		self.dna 			= genbank.gb.GetDNA()
-		self.cdna 			= genbank.gb.GetDNA()
+		self.dna 			= self.state.gb.GetDNA()
+		self.cdna 			= self.state.gb.GetDNA()
 
 		# settings for the editor 
 		self.sY				= 60	# offset top
@@ -124,7 +125,7 @@ class TextEdit(DNApyBaseDrawingClass):
 		self.hitContext = cairo.Context(cairo.ImageSurface(cairo.FORMAT_ARGB32, 1, 1))
 
 		# call window
-		DNApyBaseDrawingClass.__init__(self, parent, wx.ID_ANY)
+		DNApyBaseDrawingClass.__init__(self, parent, wx.ID_ANY, state)
 
 		# bind events
 		self.Bind(wx.EVT_LEFT_DCLICK, self.OnLeftDouble)
@@ -194,7 +195,7 @@ class TextEdit(DNApyBaseDrawingClass):
 			wC = wC - wx.SystemSettings.GetMetric(wx.SYS_VSCROLL_X)
 
 		# reload dna
-		self.dna = genbank.gb.GetDNA()
+		self.dna = self.state.gb.GetDNA()
 		if self.dna != None:
 			self.cdna 	= dna.C(self.dna)
 		else:
@@ -342,7 +343,7 @@ class TextEdit(DNApyBaseDrawingClass):
 									for i, g in enumerate(glyphs)])
 
 	def drawFeatures(self):
-		features 	= genbank.gb.get_all_feature_positions()
+		features 	= self.state.gb.get_all_feature_positions()
 		paths 		= {} # (color, path)
 		
 		featureheight = 10
@@ -502,9 +503,9 @@ class TextEdit(DNApyBaseDrawingClass):
 	
 	def drawEnzymes(self):
 		# load enzymes
-		enzymes 	=  genbank.gb.restrictionEnzymes.selection
+		enzymes 	=  self.state.gb.restrictionEnzymes.selection
 		# create hash of selection and DNA
-		hashable 	= "%s%s" % (frozenset(enzymes), genbank.gb.gbfile['dna'])
+		hashable 	= "%s%s" % (frozenset(enzymes), self.state.gb.gbfile['dna'])
 		e1 			= hashlib.md5(hashable.encode('utf-8')).hexdigest()
 		
 		if e1 != self.cairoStorage['enzymes']:
@@ -744,7 +745,7 @@ class TextEdit(DNApyBaseDrawingClass):
 				self.hit = hit
 				# we hit one, so we need to draw the selection!
 				# wich feature was hit?
-				featurelist             = genbank.gb.get_all_feature_positions()
+				featurelist             = self.state.gb.get_all_feature_positions()
 				for i in range(0,len(featurelist)):
 					# load all the feature infos
 					featuretype, complement, start, finish, name, index = featurelist[i]
@@ -772,14 +773,14 @@ class TextEdit(DNApyBaseDrawingClass):
 		hit = self.HitTest()
 		if hit != None:
 			# wich feature was hit?
-			featurelist             = genbank.gb.get_all_feature_positions()
+			featurelist             = self.state.gb.get_all_feature_positions()
 			for i in range(0,len(featurelist)):
 				# load all the feature infos
 				featuretype, complement, start, finish, name, index = featurelist[i]
 				hName = self.hitName(name, index)
 				if hit == hName:
-					genbank.feature_selection = copy.copy(index)
-					dlg = featureedit_GUI.FeatureEditDialog(None, 'Edit Feature') # creation of a dialog with a title'''
+					self.state.feature_selection = copy.copy(index)
+					dlg = featureedit_GUI.FeatureEditDialog(None, 'Edit Feature', self.state) # creation of a dialog with a title'''
 					dlg.ShowModal()
 					dlg.Center()
 					# update the UI maybe?
@@ -789,7 +790,7 @@ class TextEdit(DNApyBaseDrawingClass):
 	
 	def OnMotion(self, event):
 		if event.Dragging() and event.LeftIsDown():
-			oldSel = genbank.dna_selection
+			oldSel = self.state.dna_selection
 			
 			# get position
 			x, y 				= self.ScreenToClient(wx.GetMousePosition())
@@ -929,7 +930,7 @@ class TextEdit(DNApyBaseDrawingClass):
 		else:
 			self.PositionPointer = pointer
 		# set position of cursor for status bar:
-		genbank.cursor_position = pointer
+		self.state.cursor_position = pointer
 
 
 	def set_dna_selection(self, selection = (1,-1, -1)): # standart selection
@@ -942,7 +943,7 @@ class TextEdit(DNApyBaseDrawingClass):
 		if a > b and b != -1:
 			a,b = b,a
 		selection = (a, b , -1)
-		genbank.dna_selection = selection
+		self.state.dna_selection = selection
 		#self.update_globalUI()
 		#self.update_ownUI()
 
@@ -952,9 +953,9 @@ class TextEdit(DNApyBaseDrawingClass):
 		# linejump False/up/down
 		
 		index = self.PositionPointer
-		topology = genbank.gb.gbfile['locus']['topology']
+		topology = self.state.gb.gbfile['locus']['topology']
 		
-		length = len(genbank.gb.GetDNA())
+		length = len(self.state.gb.GetDNA())
 
 		if linejump == False:
 				# check if we moved to a Line end
@@ -999,12 +1000,12 @@ class TextEdit(DNApyBaseDrawingClass):
 		if key in [97, 65, 116, 84, 99, 67, 103, 71]: # [a, A, t, T, c, C, g, G']
 			start, finish, null = self.get_selection()
 			if finish != -1: # if a selection, delete it, then paste
-				genbank.gb.Delete(start+1, finish, visible=False)
+				self.state.gb.Delete(start+1, finish, visible=False)
 				self.PositionPointer = start
 			if shift == True:
-				genbank.gb.Paste(index, chr(key).upper())
+				self.state.gb.Paste(index, chr(key).upper())
 			elif shift == False:
-				genbank.gb.Paste(index, chr(key).lower())
+				self.state.gb.Paste(index, chr(key).lower())
 			
 			# move pointer
 			self.PositionPointer = self.PositionPointer + 1
@@ -1021,14 +1022,14 @@ class TextEdit(DNApyBaseDrawingClass):
 		elif key == 8: #backspace
 			start, finish, null = self.get_selection()
 			if finish != -1: # if a selection, delete it
-				genbank.gb.Delete(start+1, finish)
+				self.state.gb.Delete(start+1, finish)
 				self.set_dna_selection() # remove selection
 				self.PositionPointer = start
 				self.update_ownUI()
 				self.update_globalUI()
 
 			else:
-				genbank.gb.Delete(index-1, index-1)
+				self.state.gb.Delete(index-1, index-1)
 				self.PositionPointer = self.PositionPointer - 1 # set pointer back
 				self.update_ownUI()
 				self.update_globalUI()
@@ -1038,10 +1039,10 @@ class TextEdit(DNApyBaseDrawingClass):
 		elif key == 127: #delete
 			start, finish, null = self.get_selection()
 			if finish != -1: # if a selection, delete it
-				genbank.gb.Delete(start, finish)
+				self.state.gb.Delete(start, finish)
 				self.PositionPointer = start
 			else:
-				genbank.gb.Delete(index, index)
+				self.state.gb.Delete(index, index)
 			self.set_dna_selection() # remove selection
 			self.update_ownUI()
 			self.update_globalUI()
@@ -1146,7 +1147,7 @@ class TextEdit(DNApyBaseDrawingClass):
 	def select_all(self):
 		'''Select the entire dna sequence'''
 		start 	= 1
-		finish 	= len(genbank.gb.GetDNA())+1 # TODO figure the coorect way to select. Write it in some dokumentation
+		finish 	= len(self.state.gb.GetDNA())+1 # TODO figure the coorect way to select. Write it in some dokumentation
 		self.set_dna_selection((start, finish, -1))
 		#self.set_dna_selection()
 		self.update_ownUI()
@@ -1162,7 +1163,7 @@ class TextEdit(DNApyBaseDrawingClass):
 
 		selection = (start+1, finish)'''
 		
-		return genbank.dna_selection
+		return self.state.dna_selection
 
 	def uppercase(self):
 		'''Change selection to uppercase'''
@@ -1170,7 +1171,7 @@ class TextEdit(DNApyBaseDrawingClass):
 		if finish == -1:
 			raise ValueError('Cannot modify an empty selection')
 		else:
-			genbank.gb.Upper(start, finish)
+			self.state.gb.Upper(start, finish)
 			self.update_ownUI()
 			self.set_dna_selection()
 
@@ -1180,7 +1181,7 @@ class TextEdit(DNApyBaseDrawingClass):
 		if finish == -1:
 			raise ValueError('Cannot modify an empty selection')
 		else:
-			genbank.gb.Lower(start, finish)
+			self.state.gb.Lower(start, finish)
 			self.update_ownUI()
 			self.set_dna_selection()
 
@@ -1190,7 +1191,7 @@ class TextEdit(DNApyBaseDrawingClass):
 		if finish == -1:
 			raise ValueError('Cannot modify an empty selection')
 		else:
-			genbank.gb.RCselection(start, finish)
+			self.state.gb.RCselection(start, finish)
 			self.update_ownUI()
 			self.update_globalUI()
 			self.set_dna_selection()
@@ -1201,7 +1202,7 @@ class TextEdit(DNApyBaseDrawingClass):
 		if finish == -1:
 			raise ValueError('Cannot delete an empty selection')
 		else:
-			genbank.gb.Delete(start, finish)
+			self.state.gb.Delete(start, finish)
 			self.update_ownUI()
 			self.update_globalUI()
 			self.set_dna_selection()
@@ -1212,7 +1213,7 @@ class TextEdit(DNApyBaseDrawingClass):
 		if finish == -1:
 			raise ValueError('Cannot cut an empty selection')
 		else:
-			genbank.gb.Cut(start, finish)
+			self.state.gb.Cut(start, finish)
 			self.set_cursor_position(start)
 			self.update_ownUI()
 			self.update_globalUI()
@@ -1224,7 +1225,7 @@ class TextEdit(DNApyBaseDrawingClass):
 		if finish == -1:
 			raise ValueError('Cannot cut an empty selection')
 		else:
-			genbank.gb.CutRC(start, finish)
+			self.state.gb.CutRC(start, finish)
 			self.update_ownUI()
 			self.update_globalUI()
 			self.set_dna_selection()
@@ -1235,9 +1236,9 @@ class TextEdit(DNApyBaseDrawingClass):
 		if finish == -1:
 			pass
 		else: #If a selection, remove sequence, reposition pointer
-			genbank.gb.Delete(start, finish, visible=False)
+			self.state.gb.Delete(start, finish, visible=False)
 			self.set_cursor_position(start)
-		genbank.gb.RichPaste(genbank.cursor_position)
+		self.state.gb.RichPaste(self.state.cursor_position)
 		self.update_ownUI()
 		self.update_globalUI()
 		self.set_dna_selection() # reset selection
@@ -1248,9 +1249,9 @@ class TextEdit(DNApyBaseDrawingClass):
 		if finish == -1:
 			pass
 		else: #If a selection, remove sequence, reposition pointer
-			genbank.gb.Delete(start, finish, visible=False)
+			self.state.gb.Delete(start, finish, visible=False)
 			self.set_cursor_position(start)
-		genbank.gb.PasteRC(genbank.cursor_position)
+		self.state.gb.PasteRC(self.state.cursor_position)
 		self.update_ownUI()
 		self.update_globalUI()
 		self.set_dna_selection() # reset selection
@@ -1262,10 +1263,10 @@ class TextEdit(DNApyBaseDrawingClass):
 		if finish == -1:
 			raise ValueError('Cannot copy an empty selection')
 		else:
-			#genbank.gb.Copy(start, finish)
+			#self.state.gb.Copy(start, finish)
 
 			# try the new copy:
-			genbank.gb.RichCopy(start, finish)
+			self.state.gb.RichCopy(start, finish)
 
 	def copy_reverse_complement(self):
 		'''Copy reverse complement of DNA'''
@@ -1273,7 +1274,7 @@ class TextEdit(DNApyBaseDrawingClass):
 		if finish == -1:
 			raise ValueError('Cannot copy an empty selection')
 		else:
-			genbank.gb.CopyRC(start, finish)
+			self.state.gb.CopyRC(start, finish)
 
 
 #######################################################
@@ -1294,7 +1295,7 @@ class TextEdit(DNApyBaseDrawingClass):
 		if finish == -1:
 			raise ValueError('Cannot translate an empty selection')
 		else:
-			DNA = genbank.gb.GetDNA(start, finish)
+			DNA = self.state.gb.GetDNA(start, finish)
 			protein = dna.Translate(DNA)
 			self.translate_output(protein, DNA, 'leading strand')
 
@@ -1304,19 +1305,19 @@ class TextEdit(DNApyBaseDrawingClass):
 		if finish == -1:
 			raise ValueError('Cannot translate an empty selection')
 		else:
-			DNA = genbank.gb.GetDNA(start, finish)
+			DNA = self.state.gb.GetDNA(start, finish)
 			protein = dna.Translate(dna.RC(DNA))
 			self.translate_output(protein, DNA, 'complement strand')
 
 #update this one...
 	def translate_feature(self):
 		'''Translate specified feature'''
-		index = genbank.feature_selection
+		index = self.state.feature_selection
 		if index is False or index is None:
 			raise ValueError('Select a feature to translate it')
-		DNA = genbank.gb.GetFeatureDNA(index)
+		DNA = self.state.gb.GetFeatureDNA(index)
 		protein = dna.Translate(DNA)
-		self.translate_output(protein, DNA, 'feature %s' % genbank.gb.get_feature_label(index))
+		self.translate_output(protein, DNA, 'feature %s' % self.state.gb.get_feature_label(index))
 
 
 ################ other functions ###############################
@@ -1332,7 +1333,7 @@ class TextEdit(DNApyBaseDrawingClass):
 
 
 #			#which feature corresponds to this pos?
-			Feature = genbank.gb.get_featurename_for_pos(mposition)
+			Feature = self.state.gb.get_featurename_for_pos(mposition)
 			return mposition, Feature
 		else:
 			return None, None

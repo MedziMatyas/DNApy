@@ -11,7 +11,7 @@ DNApy was started by Martin Engqvist ([mengqvist/DNApy](https://github.com/mengq
 ## Status
 
 - **It runs on Python 3 and is usable for viewing and editing GenBank files.** It has been developed and tried on Windows 11 with Python 3.14, wxPython 4.3.1 and pycairo 1.29. Linux and macOS have not been tried yet (the original ran on Linux).
-- **Tested automatically** (170 tests): the sequence and GenBank code, restriction enzymes, codon design, settings, and the GUI with synthetic mouse, keyboard and menu events. The GUI has also been tried by hand, but not every dialog and function.
+- **Tested automatically** (174 tests): the sequence and GenBank code, restriction enzymes, codon design, settings, and the GUI with synthetic mouse, keyboard and menu events. The GUI has also been tried by hand, but not every dialog and function.
 - **Not finished**: see [Known limitations](#known-limitations) and the TODO list in [OVERVIEW.md](OVERVIEW.md).
 
 This is software under development. Keep a copy of your files; it reads and writes GenBank files, and the writer does not preserve everything that other programs put into a file.
@@ -103,7 +103,6 @@ The GUI tests need wxPython and pycairo and open (and close) windows; without th
 - On the plasmid map, long labels are cut off at the edge of the panel.
 - File > Export plasmid map does not work yet (the SVG export was never finished).
 - GenBank files are read and written by DNApy's own parser. Unusual files from other programs may not load, and a saved file may differ from the original (for example in the header and in how qualifiers wrap).
-- The GUI shares its state through attributes of the `genbank` module, which makes it hard to extend. This is on the TODO list.
 
 ## Not implemented
 

@@ -16,6 +16,7 @@ except ImportError:
     cairo = None
 
 from src import dna, genbank
+from src.gui.state import EditorState
 
 DATA = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data', 'test_plasmid.gb')
 
@@ -42,12 +43,10 @@ class GuiTestCase(unittest.TestCase):
         cls.app = wxapp.get_app()
 
     def setUp(self):
-        # the GUI shares its state through attributes of the genbank module
-        genbank.gb = genbank.gbobject(DATA)
-        genbank.dna_selection = (1, -1, -1)
-        genbank.cursor_position = 1
-        genbank.feature_selection = False
-        genbank.search_hits = []
+        # windows are destroyed later, when wx has time to do it; do that after each test and not all at the end
+        self.addCleanup(lambda: [wxapp.wx.Yield() for _ in range(3)])
+        # everything the panels share: the open file, the selections, ...
+        self.state = EditorState(genbank.gbobject(DATA))
         self.frame = wxapp.wx.Frame(None, size=(900, 700))
         self.addCleanup(self.frame.Destroy)
         # panels of earlier tests are destroyed but would still receive the update messages
@@ -62,7 +61,7 @@ class TestDnaEditor(GuiTestCase):
         wx = wxapp.wx
         scroll = wx.ScrolledWindow(self.frame, wx.ID_ANY)
         scroll.SetScrollRate(1, 15)  # as in the main window, which makes the window scrollable
-        editor = dnaEditorCairo_GUI.TextEdit(scroll, id=wx.ID_ANY)
+        editor = dnaEditorCairo_GUI.TextEdit(scroll, wx.ID_ANY, self.state)
         self.frame.Show()
         editor.update_ownUI()
         return editor
@@ -75,7 +74,7 @@ class TestDnaEditor(GuiTestCase):
     def test_layout_matches_the_sequence(self):
         editor = self.make_editor()
         self.assertEqual(editor.senseLayout.length, 95)
-        self.assertEqual(editor.cdna, dna.C(genbank.gb.GetDNA()))
+        self.assertEqual(editor.cdna, dna.C(self.state.gb.GetDNA()))
 
     def press(self, editor, code, shift=False):
         """Send a key press to the editor. Printable keys have a unicode key, special keys (arrows) do not."""
@@ -89,16 +88,16 @@ class TestDnaEditor(GuiTestCase):
     def test_typing_inserts_bases(self):
         editor = self.make_editor()
         self.press(editor, ord('G'))  # no shift: lower case
-        self.assertEqual(genbank.gb.GetDNA()[:6], 'gatggc')
+        self.assertEqual(self.state.gb.GetDNA()[:6], 'gatggc')
         self.press(editor, ord('T'), shift=True)  # shift: upper case
-        self.assertEqual(genbank.gb.GetDNA()[:6], 'gTatgg')
-        self.assertEqual(len(genbank.gb.GetDNA()), 97)
+        self.assertEqual(self.state.gb.GetDNA()[:6], 'gTatgg')
+        self.assertEqual(len(self.state.gb.GetDNA()), 97)
         self.assertEqual(editor.PositionPointer, 3)
 
     def test_other_letters_are_ignored(self):
         editor = self.make_editor()
         self.press(editor, ord('X'))
-        self.assertEqual(len(genbank.gb.GetDNA()), 95)
+        self.assertEqual(len(self.state.gb.GetDNA()), 95)
 
     def test_arrow_keys_move_the_cursor(self):
         wx = wxapp.wx
@@ -115,9 +114,9 @@ class TestDnaEditor(GuiTestCase):
         self.press(editor, wx.WXK_RIGHT)
         self.press(editor, wx.WXK_RIGHT)  # cursor is now in front of the third base
         self.press(editor, wx.WXK_BACK)  # removes the base in front of the cursor
-        self.assertEqual(genbank.gb.GetDNA()[:5], 'aggct')
+        self.assertEqual(self.state.gb.GetDNA()[:5], 'aggct')
         self.press(editor, wx.WXK_DELETE)  # removes the base after the cursor
-        self.assertEqual(len(genbank.gb.GetDNA()), 93)
+        self.assertEqual(len(self.state.gb.GetDNA()), 93)
 
     def mouse_at(self, editor, x, y):
         """Make the editor see the mouse at (x, y) in its own coordinates."""
@@ -152,7 +151,7 @@ class TestDnaEditor(GuiTestCase):
         motion = self.mouse_event(editor, wx.wxEVT_MOTION)
         motion.SetLeftDown(True)
         editor.OnMotion(motion)
-        self.assertEqual(genbank.dna_selection, (11, 26, -1))
+        self.assertEqual(self.state.dna_selection, (11, 26, -1))
 
     def test_hit_test_finds_the_feature_under_the_mouse(self):
         editor = self.make_editor()
@@ -162,7 +161,7 @@ class TestDnaEditor(GuiTestCase):
         self.assertIsNone(editor.HitTest())
 
     def test_long_sequence_can_be_scrolled(self):
-        genbank.gb.gbfile['dna'] = 'acgt' * 750  # 3000 bp, many more lines than fit in the window
+        self.state.gb.gbfile['dna'] = 'acgt' * 750  # 3000 bp, many more lines than fit in the window
         editor = self.make_editor()
         scroll = editor.parent
         for _ in range(5):
@@ -176,7 +175,7 @@ class TestDnaEditor(GuiTestCase):
 
     def test_mouse_wheel_scrolls(self):
         wx = wxapp.wx
-        genbank.gb.gbfile['dna'] = 'acgt' * 750
+        self.state.gb.gbfile['dna'] = 'acgt' * 750
         editor = self.make_editor()
         scroll = editor.parent
         for _ in range(5):
@@ -199,12 +198,12 @@ class TestDnaEditor(GuiTestCase):
     def test_selection_is_drawn(self):
         editor = self.make_editor()
         self.assertEqual(count_pixels(editor._Buffer, SELECTION_COLOUR), 0)
-        genbank.dna_selection = (3, 12, -1)
+        self.state.dna_selection = (3, 12, -1)
         editor.update_ownUI()
         self.assertGreater(count_pixels(editor._Buffer, SELECTION_COLOUR), 100)
 
     def test_empty_file(self):
-        genbank.gb = genbank.gbobject()
+        self.state.gb = genbank.gbobject()
         editor = self.make_editor()
         self.assertEqual(editor.dna, '')
 
@@ -219,7 +218,7 @@ class TestDnaEditor(GuiTestCase):
 class TestPlasmidView(GuiTestCase):
     def test_draws_the_plasmid(self):
         from src.gui import plasmid_GUI
-        view = plasmid_GUI.PlasmidView2(self.frame, -1)
+        view = plasmid_GUI.PlasmidView2(self.frame, -1, self.state)
         self.frame.Show()
         view.update_ownUI()
         self.assertGreater(count_pixels(view.plasmid_view._Buffer), 500)
@@ -228,7 +227,7 @@ class TestPlasmidView(GuiTestCase):
 class TestFeatureList(GuiTestCase):
     def test_builds_and_updates(self):
         from src.gui import featurelist_GUI
-        panel = featurelist_GUI.FeatureList(self.frame, -1)
+        panel = featurelist_GUI.FeatureList(self.frame, -1, self.state)
         panel.update_ownUI()
 
 
@@ -237,12 +236,63 @@ class TestMainWindow(GuiTestCase):
         from src.gui import main
         window = main.DNApy(None, -1, 'DNApy')
         self.addCleanup(window.Destroy)
-        genbank.gb = genbank.gbobject(DATA)
+        window.state.open(genbank.gbobject(DATA))
         window.update_globalUI()
         window.Show()
         for _ in range(5):
             wxapp.wx.Yield()
         self.assertEqual(window.GetTitle(), 'NewFile - DNApy')
+
+
+class TestSharedState(GuiTestCase):
+    """The panels get their state handed to them, there are no global variables."""
+
+    def test_two_editors_with_their_own_state_do_not_interfere(self):
+        from src.gui import dnaEditorCairo_GUI
+        wx = wxapp.wx
+        other = EditorState(genbank.gbobject())
+        other.gb.Paste(1, 'GGGGCCCC')
+        editors = []
+        for state in (self.state, other):
+            frame = wx.Frame(None, size=(900, 700))
+            self.addCleanup(frame.Destroy)
+            scroll = wx.ScrolledWindow(frame, wx.ID_ANY)
+            scroll.SetScrollRate(1, 15)
+            editors.append(dnaEditorCairo_GUI.TextEdit(scroll, wx.ID_ANY, state))
+            frame.Show()
+            editors[-1].update_ownUI()
+        self.assertEqual(len(editors[0].dna), 95)
+        self.assertEqual(editors[1].dna, 'GGGGCCCC')
+        # a selection in one editor is not a selection in the other
+        self.state.dna_selection = (3, 12, -1)
+        self.assertEqual(other.dna_selection, (1, -1, -1))
+
+    def test_the_genbank_module_holds_no_gui_state(self):
+        from src.gui import main
+        window = main.DNApy(None, -1, 'DNApy')
+        self.addCleanup(window.Destroy)
+        window.state.open(genbank.gbobject(DATA))
+        window.update_globalUI()
+        for name in ('gb', 'dna_selection', 'feature_selection', 'cursor_position', 'search_hits'):
+            self.assertFalse(hasattr(genbank, name), name)
+
+    def test_opening_a_file_resets_the_selections(self):
+        self.state.dna_selection = (3, 12, -1)
+        self.state.feature_selection = 1
+        self.state.cursor_position = 40
+        self.state.search_hits = [(1, 3)]
+        self.state.open(genbank.gbobject(DATA))
+        self.assertEqual((self.state.dna_selection, self.state.feature_selection,
+                          self.state.cursor_position, self.state.search_hits), ((1, -1, -1), False, 1, []))
+
+    def test_dialogs_use_the_state(self):
+        from src.gui import featureedit_GUI, enzyme_GUI
+        self.state.feature_selection = 0
+        dialogs = [featureedit_GUI.FeatureEditDialog(None, 'Edit Feature', self.state),
+                   enzyme_GUI.EnzymeSelectorDialog(None, 'Enzyme Selector', self.state),
+                   enzyme_GUI.EnzymeDigestionDialog(None, 'digestion', self.state)]
+        for dialog in dialogs:
+            self.addCleanup(dialog.Destroy)
 
 
 class TestUserSettings(GuiTestCase):
@@ -276,7 +326,7 @@ class TestUserSettings(GuiTestCase):
             self.addCleanup(frame.Destroy)
             scroll = wx.ScrolledWindow(frame, wx.ID_ANY)
             scroll.SetScrollRate(1, 15)
-            editor = dnaEditorCairo_GUI.TextEdit(scroll, id=wx.ID_ANY)
+            editor = dnaEditorCairo_GUI.TextEdit(scroll, wx.ID_ANY, self.state)
             frame.Show()
             editor.update_ownUI()
             return count_pixels(editor._Buffer, colour)
@@ -343,9 +393,9 @@ class TestMenuItems(GuiTestCase):
                 if name.lower().endswith(('exit', 'quit', 'close')):
                     continue
                 self.current = name
-                genbank.gb = genbank.gbobject(path)
-                genbank.dna_selection = (3, 20, -1)
-                genbank.feature_selection = 0
+                window.state.open(genbank.gbobject(path))
+                window.state.dna_selection = (3, 20, -1)
+                window.state.feature_selection = 0
                 window.update_globalUI()
                 event = wx.CommandEvent(wx.EVT_MENU.typeId, item_id)
                 event.SetEventObject(window)

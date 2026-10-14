@@ -157,8 +157,9 @@ class drawPlasmid(DNApyBaseDrawingClass):
 			recalculate the desired stuff
 
 		x. Highlight and interaction'''
-	def __init__(self, parent, id):
-	
+	def __init__(self, parent, id, state):
+		self.state 				= state # the shared state of the window, it has to be set before the drawing starts
+
 		# object to store our cacluations over time
 		self.plasmidstore 		= plasmidstore()		
 		self.radius 			= 25								# cairo unit
@@ -175,7 +176,7 @@ class drawPlasmid(DNApyBaseDrawingClass):
 		#self.EnzymeMonitor = Monitor()
 		
 		# start the window
-		DNApyBaseDrawingClass.__init__(self, parent, wx.ID_ANY)
+		DNApyBaseDrawingClass.__init__(self, parent, wx.ID_ANY, state)
 		
 		# bind events
 		self.Bind(wx.EVT_LEFT_UP, self.OnLeftUp)
@@ -249,7 +250,7 @@ class drawPlasmid(DNApyBaseDrawingClass):
 		'''Receives requests for DNA selection and then sends it.'''
 		assert type(selection) == tuple, 'Error, dna selection must be a tuple'
 		selection = (int(selection[0]), int(selection[1]), int(selection[2]))
-		genbank.dna_selection = selection
+		self.state.dna_selection = selection
 		self.plasmidstore.interaction["selection"] = selection
 		self.update_globalUI()
 	
@@ -257,19 +258,19 @@ class drawPlasmid(DNApyBaseDrawingClass):
 
 	def set_cursor_position(self, position):
 		# set position of cursor for status bar:
-		genbank.cursor_position 					= position 
+		self.state.cursor_position 					= position 
 		self.plasmidstore.interaction["position"] 	= position
 
 	def updateSelection(self):
 		''' get selection from editor and update own store '''
-		selection =  genbank.dna_selection
+		selection =  self.state.dna_selection
 		assert type(selection) == tuple, 'Error, dna selection must be a tuple'
 		selection = (int(selection[0]), int(selection[1]), int(selection[2]))
 		self.plasmidstore.interaction["selection"] = selection
 	
 	def updatePosition(self):
 		''' get position from editor and update own store '''
-		position 									=  genbank.cursor_position
+		position 									=  self.state.cursor_position
 		self.plasmidstore.interaction["position"] 	= position
 
 	def hitName(self, name, index):
@@ -338,7 +339,7 @@ class drawPlasmid(DNApyBaseDrawingClass):
 
 		# feature to highlight or drag and drop?
 		if featureHit != False:
-			featurelist             = genbank.gb.get_all_feature_positions()
+			featurelist             = self.state.gb.get_all_feature_positions()
 			for i in range(0,len(featurelist)):
 				# load all the feature infos
 				featuretype, complement, start, finish, name, index = featurelist[i]
@@ -453,15 +454,15 @@ class drawPlasmid(DNApyBaseDrawingClass):
 		hit = self.HitTest() #this does not get the "true" feature index. Some featues are split and this is an index that accounts for that.
 		if hit is not False:
 			# get the index of this feature
-			featurelist             = genbank.gb.get_all_feature_positions()
+			featurelist             = self.state.gb.get_all_feature_positions()
 			for i in range(0,len(featurelist)):
 				# load all the feature infos
 				featuretype, complement, start, finish, name, index = featurelist[i]
 				hName = self.hitName(name, index)
 				if hit == hName:
-					genbank.feature_selection = copy.copy(index)
+					self.state.feature_selection = copy.copy(index)
 
-			dlg = featureedit_GUI.FeatureEditDialog(None, 'Edit Feature') # creation of a dialog with a title
+			dlg = featureedit_GUI.FeatureEditDialog(None, 'Edit Feature', self.state) # creation of a dialog with a title
 			dlg.ShowModal()
 			dlg.Center()
 		
@@ -586,11 +587,11 @@ class drawPlasmid(DNApyBaseDrawingClass):
 		
 		# compare the features to the previously calculated ones
 		featuresOld = self.plasmidstore.features
-		featuresNew = genbank.gb.get_all_feature_positions()
+		featuresNew = self.state.gb.get_all_feature_positions()
 		
 		if featuresNew != None:
 			# get the length once
-			self.dnaLength 			= float(len(genbank.gb.GetDNA()))
+			self.dnaLength 			= float(len(self.state.gb.GetDNA()))
 		else:
 			self.dnaLength 			= 1 # or 0 but this might cause problems if there is a division x/length
 
@@ -1132,9 +1133,9 @@ class drawPlasmid(DNApyBaseDrawingClass):
 	def checkEnzymeCalculations(self):
 		
 		# load enzymes
-		enzymes 	=  genbank.gb.restrictionEnzymes.selection
+		enzymes 	=  self.state.gb.restrictionEnzymes.selection
 		# create hash of selection and DNA
-		hashable 	= "%s%s" % (frozenset(enzymes), genbank.gb.gbfile['dna'])
+		hashable 	= "%s%s" % (frozenset(enzymes), self.state.gb.gbfile['dna'])
 		e1 			= hashlib.md5(hashable.encode('utf-8')).hexdigest()
 
 		labels = []
@@ -1403,8 +1404,8 @@ class PlasmidView2(DNApyBaseDrawingClass):
 	'''
 	This class is intended to glue together the plasmid drawing with control buttons.
 	'''
-	def __init__(self, parent, id):
-		DNApyBaseClass.__init__(self, parent, id)
+	def __init__(self, parent, id, state):
+		DNApyBaseClass.__init__(self, parent, id, state)
 		panel1 = wx.Panel(self)
 		panel2 = wx.Panel(self)
 
@@ -1461,7 +1462,7 @@ class PlasmidView2(DNApyBaseDrawingClass):
 
 		#add the actual plasmid view
 		#self.plasmid_view = PlasmidView(panel2, -1)
-		self.plasmid_view = drawPlasmid(panel2, -1)
+		self.plasmid_view = drawPlasmid(panel2, -1, state)
 
 		sizer1 = wx.BoxSizer(wx.HORIZONTAL)
 		sizer1.Add(self.plasmid_view, proportion=-1, flag=wx.EXPAND)
@@ -1509,33 +1510,3 @@ class PlasmidView2(DNApyBaseDrawingClass):
 	#######################################################################
 
 ##### main loop
-class MyApp(wx.App):
-	def OnInit(self):
-
-		frame = wx.Frame(None, -1, title="Plasmid View", size=(700,600), style = wx.NO_FULL_REPAINT_ON_RESIZE)
-
-
-		self.plasmid_view = PlasmidView2(frame, -1)
-
-
-		frame.Centre()
-		frame.Show(True)
-		self.SetTopWindow(frame)
-		return True
-
-
-if __name__ == '__main__': #if script is run by itself and not loaded
-
-
-	genbank.dna_selection = (1, -1)	 #variable for storing current DNA selection
-	genbank.feature_selection = False #variable for storing current feature selection
-
-	import sys
-	assert len(sys.argv) == 2, 'Error, this script requires a path to a genbank file as an argument.'
-	# print('Opening %s' % str(sys.argv[1]))
-
-	genbank.gb = genbank.gbobject(str(sys.argv[1])) #make a genbank object and read file
-
-
-	app = MyApp(0)
-	app.MainLoop()

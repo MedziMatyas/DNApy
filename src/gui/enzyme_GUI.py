@@ -45,8 +45,10 @@ class EnzymeSelector(DNApyBaseClass):
 	"""
 	Class to select restriction enzymes.
 	"""
-	def __init__(self, parent, enzymeClass, id):
+	def __init__(self, parent, state, id):
 		self.parent = parent
+		self.state = state # the shared state of the window (see state.py)
+		enzymeClass = state.gb.restrictionEnzymes
 		wx.Panel.__init__(self, parent)
 		
 		# make enzymes accesible
@@ -224,12 +226,12 @@ class EnzymeSelector(DNApyBaseClass):
 	# function to find singlecutters or similar
 	def findCutters(self, n):
 		cutter = collections.OrderedDict()
-		dnaseq      = genbank.gb.gbfile["dna"]
+		dnaseq      = self.state.gb.gbfile["dna"]
 		if dnaseq != None:
 			# circular dna
 			# we just inspect the region +-100 
 			# to find enzyme, which cut near 0 in a ciclic plasmid
-			if genbank.gb.gbfile['locus']['topology'] == 'circular':
+			if self.state.gb.gbfile['locus']['topology'] == 'circular':
 				circularDnaHelper = dnaseq[:100]  # helper of 200bp from 0 to 100
 			else:
 				circularDnaHelper = ''
@@ -342,12 +344,12 @@ class EnzymeSelector(DNApyBaseClass):
 		restrictionsitesList = [] # variable to return the restriction sites
 					  # syntax:
 					  # [[name, start, stop, cut 1, cut 2, sequence],[...]]
-		dnaseq      = genbank.gb.gbfile["dna"]
+		dnaseq      = self.state.gb.gbfile["dna"]
 		
 		# circular dna
 		# we just inspect the region +-100 
 		# to find enzyme, which cut near 0 in a ciclic plasmid
-		if genbank.gb.gbfile['locus']['topology'] == 'circular':
+		if self.state.gb.gbfile['locus']['topology'] == 'circular':
 			circularDnaHelper = dnaseq[:100]  # helper of 200bp from 0 to 100
 		else:
 			circularDnaHelper = ''
@@ -413,11 +415,12 @@ class EnzymeSelector(DNApyBaseClass):
 		
 class EnzymeSelectorDialog(wx.Dialog):
 	'''A class that puts the Enzyme Selector capabilities in a dialog.'''
-	def __init__(self, parent, title, enzymeClass):
+	def __init__(self, parent, title, state):
 		super(EnzymeSelectorDialog, self).__init__(parent=parent,id=wx.ID_ANY, title=title, size=(750, 430)) 		
+		enzymeClass = state.gb.restrictionEnzymes
 		oldSelection = enzymeClass.selection
 		#add the panel (containing all the buttons/lists/interactive elements
-		self.content = EnzymeSelector(self, enzymeClass,id=wx.ID_ANY,)	#get the feature edit panel
+		self.content = EnzymeSelector(self, state, id=wx.ID_ANY)	#get the feature edit panel
 		
 
 		# add the old selection:
@@ -469,13 +472,13 @@ class EnzymeSelectorDialog(wx.Dialog):
 # 
 class EnzymeDigestionDialog(wx.Dialog):
 	'''A class that puts the Enzyme digestion capabilities in a dialog.'''
-	def __init__(self, parent, title, Enzymes,enzymeClass):
+	def __init__(self, parent, title, state):
 		super(EnzymeDigestionDialog, self).__init__(parent=parent,id=wx.ID_ANY, title=title, size=(600, 430)) 		
 		
 		# get width and height to pass to child class
 		width, height = self.GetClientSize()	
 		#add the panel, containing all the buttons/lists/interactive elements
-		self.content = EnzymeDigestion(self,Enzymes, enzymeClass, width, height, id=wx.ID_ANY)	
+		self.content = EnzymeDigestion(self, state, width, height, id=wx.ID_ANY)	
 		
 		#add sizer
 		sizer = wx.BoxSizer(wx.VERTICAL)
@@ -491,8 +494,11 @@ class EnzymeDigestion(DNApyBaseClass):
 	"""
 	Class to show enzyme digestion
 	"""
-	def __init__(self, parent,Enzymes,enzymeClass,  width, height, id):
+	def __init__(self, parent, state, width, height, id):
 		self.parent = parent
+		self.state = state # the shared state of the window (see state.py)
+		Enzymes = state.gb.restrictionEnzymes.selection # the selected enzymes and their cut positions
+		enzymeClass = state.gb.restrictionEnzymes
 		wx.Panel.__init__(self, parent,size=(width, height))
 		
 		# get the restriction enzymes
@@ -504,13 +510,13 @@ class EnzymeDigestion(DNApyBaseClass):
 		font      = wx.Font(9, wx.DEFAULT, wx.NORMAL, wx.BOLD)			
 		
 		# find the cut positions
-		self.cutpositions = self.findCutPositons(Enzymes, genbank.gb.gbfile["dna"])
+		self.cutpositions = self.findCutPositons(Enzymes, self.state.gb.gbfile["dna"])
 		# we already know the cut positions! They are now always there
 		
 		
 		
 		# calculate the fragments, new and old style
-		self.fragments, self.fragmentsObj     = self.calculateFragments(self.cutpositions, genbank.gb.gbfile['locus']['topology'])
+		self.fragments, self.fragmentsObj     = self.calculateFragments(self.cutpositions, self.state.gb.gbfile['locus']['topology'])
 		
 		
 		# box for drawing the gel
@@ -774,7 +780,7 @@ class EnzymeDigestion(DNApyBaseClass):
 		# fragments as following or as objects (new):
 		#	fragement = [[dnastring, start, stop], [...]]
 		
-		dna = genbank.gb.gbfile["dna"]		# the dna
+		dna = self.state.gb.gbfile["dna"]		# the dna
 		length    = len(dna)			# length of the dna
 		
 		# if there are no positions the gel is just one fragment
@@ -970,7 +976,7 @@ class EnzymeDigestion(DNApyBaseClass):
 		'''Receives requests for DNA selection and then sends it.'''
 		assert type(selection) == tuple, 'Error, dna selection must be a tuple'
 		selection = (int(selection[0]+1), int(selection[1]))
-		genbank.dna_selection = selection
+		self.state.dna_selection = selection
 		
 		# update UI
 		self.update_globalUI()

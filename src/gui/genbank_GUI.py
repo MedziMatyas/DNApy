@@ -36,7 +36,8 @@ from .base_class import DNApyBaseClass
 
 class MyPanel(create):
 	'''Class to add update behaviour to the output panel'''
-	def __init__(self, parent, style):
+	def __init__(self, parent, state, style):
+		self.state = state # the shared state of the window (see state.py)
 		super(MyPanel, self).__init__(parent, style) 
 	
 
@@ -52,7 +53,7 @@ class MyPanel(create):
 
 	def update_ownUI(self):
 		'''Updates all fields depending on which feature is chosen'''
-		genbankfile = genbank.gb.make_gbstring()
+		genbankfile = self.state.gb.make_gbstring()
 		self.clear()
 		self.write(genbankfile, 'Text')
 
