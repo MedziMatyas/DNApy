@@ -59,7 +59,7 @@ from . import featureedit_GUI
 from . import featurelist_GUI
 from . import plasmid_GUI
 from . import genbank_GUI
-from .state import EditorState
+from .state import EditorState, MAX_SEQUENCE_LENGTH
 from . import enzyme_GUI
 from . import mixed_base_codons_GUI
 #import mixed_base_codons_GUI
@@ -292,6 +292,7 @@ class DNApy(wx.Frame):
 			self.frame_1_toolbar.EnableTool(511, True)
 			self.frame_1_toolbar.EnableTool(512, True)
 			self.fileopen = True
+			wx.CallAfter(self.warn_if_too_long) # when the window has been drawn with the new file
 
 
 			#self.DNApy.update_ownUI()
@@ -304,6 +305,16 @@ class DNApy(wx.Frame):
 
 		# update gui to find eestriction sites etc
 		self.update_globalUI()
+
+	def warn_if_too_long(self):
+		'''Tell the user if the open sequence is longer than what the sequence view can show completely'''
+		length = len(self.state.gb.GetDNA() or '')
+		if length > MAX_SEQUENCE_LENGTH:
+			log.warning('The sequence is %d bp, longer than the %d bp that the sequence view can show', length, MAX_SEQUENCE_LENGTH)
+			wx.MessageBox('This sequence is %s bp long. DNApy is made for plasmids, and the sequence view can show up to about '
+						'%s bp: the last part of a longer sequence is not drawn, and editing gets slow.\n\n'
+						'The sequence in the file is not changed.' % (format(length, ','), format(MAX_SEQUENCE_LENGTH, ',')),
+						'Long sequence', wx.OK | wx.ICON_WARNING)
 
 	def save_file(self, evt):
 		'''Function for saving file'''
@@ -346,36 +357,33 @@ class DNApy(wx.Frame):
 
 	# export svg or png
 	def export_plasmid_map(self, evt):
+		'''Save the map of the plasmid as a vector drawing (.svg) or as an image (.png)'''
+		filetypes = ['.svg', '.png']
+		wildcard = "SVG drawing (*.svg)|*.svg|PNG image (*.png)|*.png"
+		name = self.state.gb.gbfile['locus']['name'] or 'plasmid'
 
-		# show dialog
-
-		# if we want export as png we have to make the wildcard so:
-		#filetypes = ['.png', '.svg']
-		#wildcard = "as .png file (*.png)|*.png | as .svg file (*.svg)|*.svg"
-
-		filetypes = ['.svg']
-		wildcard = "as .svg file (*.svg)|*.svg"
-
-		saveFileDialog = wx.FileDialog(self, "Save your image file", "", "/",
-						       wildcard, wx.FD_SAVE )
-		# check if file was opened
+		saveFileDialog = wx.FileDialog(self, "Save the plasmid map", settings.get().start_directory, name + '.svg',
+									wildcard, wx.FD_SAVE | wx.FD_OVERWRITE_PROMPT)
 		if saveFileDialog.ShowModal() == wx.ID_CANCEL:
 			return     # the user changed idea...
 
-		# proceed loading the file chosen by the user
-		# this can be done with e.g. wxPython input streams:
 		exportFilePath = saveFileDialog.GetPath()
 		filetype = filetypes[saveFileDialog.GetFilterIndex()]
+		saveFileDialog.Destroy()
 
-		# add extension
-		if exportFilePath[-4:] != filetype and exportFilePath[-4:] != filetype.upper():
-			exportFilePath = "%s%s" %(exportFilePath,filetype)
+		# the type is the one in the name of the file if there is one, otherwise the one that is chosen in the dialog
+		extension = os.path.splitext(exportFilePath)[1].lower()
+		if extension in filetypes:
+			filetype = extension
+		else:
+			exportFilePath = exportFilePath + filetype
 
-
-
-		# now draw the svg to the surface and get it:
-		exportfile = self.DNApy.plasmidview.plasmid_view.exportMapAs(exportFilePath,filetype)
-
+		try:
+			self.DNApy.plasmidview.plasmid_view.exportMapAs(exportFilePath, filetype)
+		except (OSError, ValueError) as error:
+			log.error("The plasmid map could not be saved: %s", error)
+			wx.MessageBox("The plasmid map could not be saved:\n%s" % error, "DNApy", wx.OK | wx.ICON_ERROR)
+			return False
 		return True
 
 	def quit(self, evt):

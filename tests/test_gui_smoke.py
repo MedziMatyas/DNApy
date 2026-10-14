@@ -676,6 +676,266 @@ class TestToolbars(GuiTestCase):
         self.assertEqual(window.state.gb.GetDNA(1, 3).lower(), 'ctg')
 
 
+class TestPlasmidMapExport(GuiTestCase):
+    """File > Export plasmid map saves the map as an svg drawing or a png image."""
+
+    def setUp(self):
+        super().setUp()
+        folder = tempfile.TemporaryDirectory()
+        self.addCleanup(folder.cleanup)
+        self.folder = folder.name
+
+    def make_view(self, size=(700, 700)):
+        from dnapy.gui import plasmid_GUI
+        self.frame.SetSize(size)
+        view = plasmid_GUI.PlasmidView2(self.frame, -1, self.state)
+        view.SetSize(self.frame.GetClientSize())
+        self.frame.Show()
+        view.update_ownUI()
+        for _ in range(3):
+            wxapp.wx.Yield()
+        return view.plasmid_view
+
+    def path(self, name):
+        return os.path.join(self.folder, name)
+
+    def svg_size(self, path):
+        import xml.etree.ElementTree as ElementTree
+        root = ElementTree.parse(path).getroot()
+        self.assertTrue(root.tag.endswith('svg'))
+        return int(root.get('width')), int(root.get('height')), root
+
+    def test_svg(self):
+        view = self.make_view()
+        self.assertEqual(view.exportMapAs(self.path('map.svg')), self.path('map.svg'))
+        width, height, root = self.svg_size(self.path('map.svg'))
+        self.assertGreater(width, 100)
+        self.assertGreater(height, 100)
+        paths = [element for element in root.iter() if element.tag.endswith('path')]
+        self.assertGreater(len(paths), 5)  # the circle, the features and the text of the labels
+
+    def test_png_is_a_larger_picture_of_the_same_map(self):
+        wx = wxapp.wx
+        view = self.make_view()
+        view.exportMapAs(self.path('map.svg'))
+        view.exportMapAs(self.path('map.png'))
+        with open(self.path('map.png'), 'rb') as f:
+            self.assertEqual(f.read(8), b'\x89PNG\r\n\x1a\n')
+        width, height, root = self.svg_size(self.path('map.svg'))
+        image = wx.Image(self.path('map.png'))
+        self.assertEqual(tuple(image.GetSize()), (width * view.PNG_SCALE, height * view.PNG_SCALE))
+
+    def test_nothing_is_cut_off_and_there_is_a_margin(self):
+        """The file is as large as the map with its labels: the whole border of the picture is empty (white)."""
+        wx = wxapp.wx
+        view = self.make_view()
+        view.exportMapAs(self.path('map.png'))
+        image = wx.Image(self.path('map.png'))
+        width, height = image.GetSize()
+        data = bytes(image.GetData())
+
+        def is_white(x, y):
+            return data[3 * (y * width + x):3 * (y * width + x) + 3] == b'\xff\xff\xff'
+        border = view.EXPORT_MARGIN * view.PNG_SCALE // 2
+        edge = [(x, y) for x in range(width) for y in list(range(border)) + list(range(height - border, height))]
+        edge += [(x, y) for y in range(height) for x in list(range(border)) + list(range(width - border, width))]
+        self.assertTrue(all(is_white(x, y) for x, y in edge))
+        self.assertGreater(sum(1 for i in range(0, len(data), 3) if data[i:i + 3] != b'\xff\xff\xff'), 5000)  # the map
+
+    def test_the_map_is_the_same_size_in_a_small_and_a_large_window(self):
+        small = self.make_view((300, 300))
+        small.exportMapAs(self.path('small.svg'))
+        sizes = self.svg_size(self.path('small.svg'))[:2]
+        self.assertGreater(min(sizes), 150)  # a tiny window does not give a tiny map
+
+    def test_the_type_comes_from_the_name_or_is_given(self):
+        view = self.make_view()
+        view.exportMapAs(self.path('by_name.PNG'))  # not case sensitive
+        with open(self.path('by_name.PNG'), 'rb') as f:
+            self.assertEqual(f.read(4), b'\x89PNG')
+        view.exportMapAs(self.path('no_extension'), '.svg')
+        self.svg_size(self.path('no_extension'))
+
+    def test_other_types_are_refused(self):
+        view = self.make_view()
+        with self.assertRaisesRegex(ValueError, r'\.svg or \.png'):
+            view.exportMapAs(self.path('map.jpg'))
+        self.assertFalse(os.path.exists(self.path('map.jpg')))
+
+    def test_exporting_does_not_disturb_the_window(self):
+        view = self.make_view()
+        view.Highlight = 'some feature'
+        screen_context = view.ctx
+        view.exportMapAs(self.path('map.svg'))
+        self.assertEqual(view.Highlight, 'some feature')  # the highlight is not in the file, but it is still on screen
+        self.assertIsNotNone(view.ctx)
+        self.assertGreater(view.GetVirtualSize()[0], 0)
+        view.exportMapAs(self.path('again.svg'))  # and it can be done again
+        self.assertTrue(os.path.exists(self.path('again.svg')))
+
+    def test_the_selection_is_not_in_the_file(self):
+        view = self.make_view()
+        view.exportMapAs(self.path('plain.svg'))
+        self.state.dna_selection = (3, 40, -1)
+        view.update_ownUI()
+        view.exportMapAs(self.path('selected.svg'))
+        import re
+
+        def drawing(name):
+            with open(self.path(name)) as f:
+                return re.sub(r'source-\d+', 'source-N', f.read())  # cairo numbers the parts of a drawing, differently each time
+        self.assertEqual(drawing('plain.svg'), drawing('selected.svg'))
+
+    def test_an_empty_file(self):
+        self.state.gb = genbank.gbobject()
+        view = self.make_view()
+        view.exportMapAs(self.path('empty.svg'))
+        self.svg_size(self.path('empty.svg'))
+
+    def test_a_file_that_cannot_be_written(self):
+        view = self.make_view()
+        with self.assertRaises(OSError):
+            view.exportMapAs(os.path.join(self.folder, 'no_such_folder', 'map.svg'))
+
+    # the menu item File > Export plasmid map
+
+    def export_from_menu(self, chosen_path, filter_index=0, cancel=False):
+        """Run File > Export plasmid map with a file dialog that 'chooses' the path. Returns the result and the messages."""
+        from unittest import mock
+        from dnapy.gui import main
+        wx = wxapp.wx
+        window = main.DNApy(None, -1, 'DNApy')
+        self.addCleanup(window.Destroy)
+        window.Show()
+        window.state.open(genbank.gbobject(DATA))
+        window.update_globalUI()
+        wx.Yield()
+
+        class FileDialog(object):
+            def __init__(self, *args, **kwargs):
+                self.args = args
+
+            def ShowModal(self):
+                return wx.ID_CANCEL if cancel else wx.ID_OK
+
+            def GetPath(self):
+                return chosen_path
+
+            def GetFilterIndex(self):
+                return filter_index
+
+            def Destroy(self):
+                pass
+        messages = []
+        with mock.patch.object(wx, 'FileDialog', FileDialog), \
+                mock.patch.object(wx, 'MessageBox', lambda *args, **kwargs: messages.append(args[0])):
+            result = window.export_plasmid_map(None)
+        return result, messages
+
+    def test_menu_saves_an_svg(self):
+        result, messages = self.export_from_menu(self.path('menu.svg'))
+        self.assertTrue(result)
+        self.assertEqual(messages, [])
+        self.svg_size(self.path('menu.svg'))
+
+    def test_menu_adds_the_extension_of_the_chosen_type(self):
+        self.export_from_menu(self.path('menu_png'), filter_index=1)
+        with open(self.path('menu_png.png'), 'rb') as f:
+            self.assertEqual(f.read(4), b'\x89PNG')
+        self.export_from_menu(self.path('menu_svg'), filter_index=0)
+        self.svg_size(self.path('menu_svg.svg'))
+
+    def test_menu_uses_the_extension_that_was_typed(self):
+        self.export_from_menu(self.path('typed.png'), filter_index=0)  # the filter says svg, the name says png
+        with open(self.path('typed.png'), 'rb') as f:
+            self.assertEqual(f.read(4), b'\x89PNG')
+
+    def test_menu_cancel_saves_nothing(self):
+        result, messages = self.export_from_menu(self.path('cancelled.svg'), cancel=True)
+        self.assertIsNone(result)
+        self.assertFalse(os.path.exists(self.path('cancelled.svg')))
+
+    def test_menu_tells_the_user_when_the_file_cannot_be_written(self):
+        result, messages = self.export_from_menu(os.path.join(self.folder, 'no_such_folder', 'map.svg'))
+        self.assertFalse(result)
+        self.assertEqual(len(messages), 1)
+        self.assertIn('could not be saved', messages[0])
+
+
+class TestLongSequenceWarning(GuiTestCase):
+    """Opening a sequence that is longer than the sequence view can show completely gives a warning."""
+
+    LIMIT = 3000  # a small limit for the tests, a sequence of 50,000 bases takes seconds to open
+
+    def open_file_of_length(self, length):
+        """Open a GenBank file with `length` bases through File > Open. Returns the messages that were shown."""
+        from unittest import mock
+        from dnapy.gui import main
+        wx = wxapp.wx
+        window = main.DNApy(None, -1, 'DNApy')
+        self.addCleanup(window.Destroy)
+        window.Show()
+
+        folder = tempfile.TemporaryDirectory()
+        self.addCleanup(folder.cleanup)
+        with open(DATA) as f:
+            text = f.read()
+        sequence = ('acgt' * (length // 4 + 1))[:length]
+        header = text[:text.index('ORIGIN')]
+        lines = ['%9d %s' % (i + 1, sequence[i:i + 60]) for i in range(0, length, 60)]
+        path = os.path.join(folder.name, 'long.gb')
+        with open(path, 'w') as f:
+            f.write(header.replace('95 bp', '%d bp' % length) + 'ORIGIN\n' + '\n'.join(lines) + '\n//\n')
+
+        class FileDialog(object):
+            def __init__(self, *args, **kwargs):
+                pass
+
+            def ShowModal(self):
+                return wx.ID_OK
+
+            def GetFilename(self):
+                return 'long.gb'
+
+            def GetPath(self):
+                return path
+
+            def GetDirectory(self):
+                return folder.name
+
+            def Destroy(self):
+                pass
+
+        messages = []
+        with mock.patch.object(wx, 'FileDialog', FileDialog), \
+                mock.patch.object(wx, 'MessageBox', lambda *args, **kwargs: messages.append(args)), \
+                mock.patch.object(main, 'MAX_SEQUENCE_LENGTH', self.LIMIT):
+            window.open_file(None)
+            for _ in range(5):
+                wx.Yield()
+        self.assertEqual(len(window.state.gb.GetDNA()), length)
+        return messages
+
+    def test_a_sequence_that_is_too_long_gives_a_warning(self):
+        messages = self.open_file_of_length(4000)
+        self.assertEqual(len(messages), 1)
+        text = messages[0][0]
+        self.assertIn('4,000 bp', text)
+        self.assertIn('3,000 bp', text)  # the limit that is used in these tests
+        self.assertIn('not changed', text)
+        self.assertIn('Long sequence', messages[0])
+
+    def test_the_limit_is_50_kb(self):
+        from dnapy.gui.state import MAX_SEQUENCE_LENGTH
+        self.assertEqual(MAX_SEQUENCE_LENGTH, 50000)
+
+    def test_a_sequence_of_the_maximum_length_gives_no_warning(self):
+        self.assertEqual(self.open_file_of_length(self.LIMIT), [])
+
+    def test_a_plasmid_gives_no_warning(self):
+        self.assertEqual(self.open_file_of_length(500), [])
+
+
 class TestUserSettings(GuiTestCase):
     """The GUI uses the settings, so a user file changes how it looks."""
 

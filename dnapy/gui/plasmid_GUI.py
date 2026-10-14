@@ -1216,10 +1216,11 @@ class drawPlasmid(DNApyBaseDrawingClass):
 	############################################
 	# drawing functions
 
-	def normalizeCanvas(self):
+	def normalizeCanvas(self, size=None):
 		'''Scale and move the canvas, so that the plasmid is drawn in a 100 x 100 unit area with its center at 0,0.
-		This is done once for every new cairo context, before anything is calculated or drawn.'''
-		width, height = self.GetVirtualSize()
+		This is done once for every new cairo context, before anything is calculated or drawn.
+		`size` is the (width, height) of the canvas, the size of this window if it is not given.'''
+		width, height = size if size is not None else self.GetVirtualSize()
 		if width < height:
 			ratio = float(width)/float(height)
 			# only resize the canvas if software is loaded. This prevents error messages
@@ -1234,6 +1235,59 @@ class drawPlasmid(DNApyBaseDrawingClass):
 				self.ctx.scale(width*ratio, height) # Normalizing the canvas
 				self.ctx.scale(0.01, 0.01) 			# make it 100*ratiox100
 				self.ctx.translate (50/ratio,50) 		# set center to 0,0
+
+	EXPORT_TYPES = ('.svg', '.png')
+	PNG_SCALE = 2 # a png of the map is made this many times larger than the window, to be sharp when printed
+	EXPORT_MARGIN = 20 # pixels of empty space around the exported map
+
+	def exportMapAs(self, path, filetype=None):
+		'''
+		Draw the map of the plasmid into a file, as it looks in the window but without the selection and the
+		highlighted feature. The type is '.svg' (a vector drawing, the text is made of outlines) or '.png'; if it is
+		not given it is taken from the file name. The background is white in a png and transparent in an svg.
+		The file is exactly as large as the map with its labels (plus a margin), so no label is cut off.
+		Returns the path of the file.
+		'''
+		filetype = (filetype or os.path.splitext(path)[1]).lower()
+		if filetype not in self.EXPORT_TYPES:
+			raise ValueError('Plasmid maps can be saved as %s, not as %r.' % (' or '.join(self.EXPORT_TYPES), filetype))
+
+		self.update_ownUI() # make sure that everything that is drawn is up to date
+		size = tuple(max(n, 400) for n in self.GetVirtualSize()) # the window can be tiny, a map should not be
+
+		# draw the map on a recording, which has no size, to find out how much room it needs
+		screen_context, screen_highlight = self.ctx, self.Highlight
+		recording = cairo.RecordingSurface(cairo.CONTENT_COLOR_ALPHA, None)
+		try:
+			self.ctx = cairo.Context(recording)
+			self.Highlight = None
+			self.normalizeCanvas(size)
+			self.drawFeatures()
+			self.drawLabels()
+		finally:
+			self.ctx, self.Highlight = screen_context, screen_highlight
+		x, y, width, height = recording.ink_extents()
+		margin = self.EXPORT_MARGIN
+		width, height = int(math.ceil(width)) + 2 * margin, int(math.ceil(height)) + 2 * margin
+
+		# and play the recording back into the file, moved so that the map starts at the margin
+		if filetype == '.svg':
+			surface = cairo.SVGSurface(path, width, height)
+		else:
+			surface = cairo.ImageSurface(cairo.FORMAT_ARGB32, width * self.PNG_SCALE, height * self.PNG_SCALE)
+		try:
+			ctx = cairo.Context(surface)
+			if filetype == '.png':
+				ctx.scale(self.PNG_SCALE, self.PNG_SCALE)
+				ctx.set_source_rgb(1, 1, 1)
+				ctx.paint()
+			ctx.set_source_surface(recording, margin - x, margin - y)
+			ctx.paint()
+			if filetype == '.png':
+				surface.write_to_png(path)
+		finally:
+			surface.finish() # for an svg this writes the file
+		return path
 
 	def draw(self):
 		''' # print the stored elements on th canvas'''

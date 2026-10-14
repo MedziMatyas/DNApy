@@ -11,7 +11,7 @@ DNApy was started by Martin Engqvist ([mengqvist/DNApy](https://github.com/mengq
 ## Status
 
 - **It runs on Python 3 and is usable for viewing and editing GenBank files.** It has been developed and tried on Windows 11 with Python 3.14, wxPython 4.3.1 and pycairo 1.29. Linux and macOS have not been tried yet (the original ran on Linux).
-- **Tested automatically** (226 tests): the sequence and GenBank code, restriction enzymes, codon design, settings, and the GUI with synthetic mouse, keyboard and menu events. The GUI has also been tried by hand, but not every dialog and function.
+- **Tested automatically** (246 tests): the sequence and GenBank code, restriction enzymes, codon design, settings, and the GUI with synthetic mouse, keyboard and menu events. The GUI has also been tried by hand, but not every dialog and function.
 - **Not finished**: see [Known limitations](#known-limitations) and the TODO list in [OVERVIEW.md](OVERVIEW.md).
 
 This is software under development. Keep a copy of your files; it reads and writes GenBank files, and the writer does not preserve everything that other programs put into a file.
@@ -27,7 +27,7 @@ This is software under development. Keep a copy of your files; it reads and writ
 - Translates a selection, its reverse complement, or a feature.
 - Designs mixed base codons: choose the amino acids you want and it finds the degenerate codon with the fewest off-target amino acids.
 - Finds restriction sites for the enzymes of the REBASE list in `dnapy/data/emboss_e.txt`, marks the cut positions, and simulates a digest on an agarose gel preview.
-- Opens and saves `.gb` files.
+- Opens and saves `.gb` files, and saves the plasmid map as a vector drawing (`.svg`) or an image (`.png`) with File > Export plasmid map.
 
 ## Requirements
 
@@ -111,9 +111,8 @@ The GUI tests need wxPython and pycairo and open (and close) windows; without th
 
 - Developed on Windows only so far. It can be installed with pip from the repository, but is not published on PyPI and there is no stand-alone installer.
 - The text is drawn with Cairo's basic text functions on a monospaced grid. That works for DNA, but labels have no advanced text layout, and high resolution displays have not been looked at.
-- The sequence view draws the whole sequence as one image, which is fine for plasmids of a few kilobases but not for very long sequences.
-- On the plasmid map, long labels are cut off at the edge of the panel.
-- File > Export plasmid map does not work yet (the SVG export was never finished).
+- Sequences up to about 50 kb are supported, which covers plasmids, cosmids and large viral vectors. The sequence view draws the whole sequence as one image, which has a maximum size, so in a longer sequence the last part is not drawn and editing gets slow. DNApy shows a warning when you open such a file (the file itself is not changed).
+- On the plasmid map in the window, long labels are cut off at the edge of the panel. The exported map (SVG or PNG) is sized to fit all labels.
 - GenBank files are read and written by DNApy's own parser. Unusual files from other programs may not load, and a saved file may differ from the original (for example in the header and in how qualifiers wrap).
 
 ## Not implemented

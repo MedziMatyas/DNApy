@@ -8,6 +8,11 @@ This module does not need wxPython, so it can be used in tests.
 """
 from .. import genbank
 
+# DNApy is made for plasmids. The sequence view draws the whole sequence as one image, which has a maximum size, so
+# sequences longer than this are not drawn completely (and drawing gets slow before that). About 50 kb is enough
+# for plasmids, cosmids and large viral vectors.
+MAX_SEQUENCE_LENGTH = 50000
+
 
 class EditorState(object):
     def __init__(self, gb=None):
